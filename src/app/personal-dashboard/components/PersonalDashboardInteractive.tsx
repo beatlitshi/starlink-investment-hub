@@ -161,87 +161,20 @@ export default function PersonalDashboardInteractive() {
   };
 
   const investments: Investment[] = [
-  {
-    id: '1',
-    name: 'Starlink Global',
-    symbol: 'STLK',
-    image: "https://img.rocket.new/generatedImages/rocket_gen_img_18f77f544-1766400233926.png",
-    alt: 'Satellite orbiting Earth with blue glow against dark space background',
-    currentValue: 125000.00,
-    invested: 100000.00,
-    shares: 833.3333,
-    returnAmount: 25000.00,
-    returnPercentage: 25.00,
-    dayChange: 1250.00,
-    dayChangePercentage: 1.01,
-    isCrypto: true,
-    cryptoBonus: 8000.00
-  },
-  {
-    id: '2',
-    name: 'SpaceX Ventures',
-    symbol: 'SPCX',
-    image: "https://images.unsplash.com/photo-1516850228053-a807778c4e0f",
-    alt: 'Rocket launching into space with bright orange flames and smoke',
-    currentValue: 87500.00,
-    invested: 75000.00,
-    shares: 583.3333,
-    returnAmount: 12500.00,
-    returnPercentage: 16.67,
-    dayChange: 875.00,
-    dayChangePercentage: 1.01,
-    isCrypto: false
-  },
-  {
-    id: '3',
-    name: 'Satellite Tech ETF',
-    symbol: 'STET',
-    image: "https://images.unsplash.com/photo-1649682892309-e10e0b7cd40b",
-    alt: 'Digital network connections with glowing blue nodes on dark background',
-    currentValue: 50043.75,
-    invested: 50000.00,
-    shares: 2001.7500,
-    returnAmount: 43.75,
-    returnPercentage: 0.09,
-    dayChange: 500.50,
-    dayChangePercentage: 1.01,
-    isCrypto: false
-  },
-  {
-    id: '4',
-    name: 'Global Connectivity Fund',
-    symbol: 'GCON',
-    image: "https://images.unsplash.com/photo-1658479657379-e0adb7cb91e8",
-    alt: 'Computer code on dark screen with blue and green syntax highlighting',
-    currentValue: 25000.00,
-    invested: 25000.00,
-    shares: 1000.0000,
-    returnAmount: 0.00,
-    returnPercentage: 0.00,
-    dayChange: 222.00,
-    dayChangePercentage: 0.90,
-    isCrypto: false
-  }];
+    // Initial investments are empty - users start with 0 balance
+    // Investments can be added later via admin panel or user deposits
+  ];
 
 
   const performanceData = [
-  { date: '01.12', value: 250000, invested: 250000 },
-  { date: '05.12', value: 252500, invested: 250000 },
-  { date: '10.12', value: 255000, invested: 250000 },
-  { date: '15.12', value: 260000, invested: 250000 },
-  { date: '20.12', value: 265000, invested: 250000 },
-  { date: '25.12', value: 270000, invested: 250000 },
-  { date: '31.12', value: 275000, invested: 250000 },
-  { date: '05.01', value: 280000, invested: 250000 },
-  { date: '10.01', value: 285000, invested: 250000 },
-  { date: '12.01', value: 287543.75, invested: 250000 }];
+    // Initial performance data - starts at 0
+    { date: '01.01', value: 0, invested: 0 }
+  ];
 
 
   const allocationData = [
-  { name: 'Starlink Global', value: 125000.00, percentage: 43.47 },
-  { name: 'SpaceX Ventures', value: 87500.00, percentage: 30.43 },
-  { name: 'Satellite Tech ETF', value: 50043.75, percentage: 17.40 },
-  { name: 'Global Connectivity Fund', value: 25000.00, percentage: 8.70 }];
+    // No allocations initially
+  ];
 
 
   const riskMetrics = [
