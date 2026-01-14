@@ -6,7 +6,7 @@ import Icon from '@/components/ui/AppIcon';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import Header from '@/components/common/Header';
 import { useStockPrices } from '@/hooks/useStockPrices';
-import { emailNotificationService } from '@/services/emailNotificationService';
+import { supabase } from '@/lib/supabase';
 
 interface User {
   id: string;
@@ -73,23 +73,56 @@ export default function AdminDashboard() {
 
   const [users, setUsers] = useState<User[]>([]);
 
-  // Save users to localStorage when they change
+  // Load users from Supabase
+  useEffect(() => {
+    const loadUsers = async () => {
+      if (!supabase) return;
+
+      const { data, error } = await supabase
+        .from('users')
+        .select('*');
+
+      if (error) {
+        console.error('Error loading users:', error);
+      } else if (data) {
+        const formattedUsers = data.map(user => ({
+          id: user.id,
+          name: `${user.first_name} ${user.last_name}`,
+          email: user.email,
+          status: 'approved' as const, // Assume approved for now
+          joinDate: new Date(user.created_at).toLocaleDateString(),
+          dashboardAccess: true,
+          accountBalance: user.balance || 0,
+          cryptoHoldings: 0, // Add if needed
+        }));
+        setUsers(formattedUsers);
+      }
+    };
+
+    loadUsers();
+  }, []);
+
+  // Save users to database when they change
   useEffect(() => {
     if (users.length > 0) {
-      // Convert back to stored format
-      const storedUsers = users.map(user => {
+      // Update database
+      users.forEach(async (user) => {
+        if (!supabase) return;
+
         const [firstName, ...lastNameParts] = user.name.split(' ');
         const lastName = lastNameParts.join(' ');
-        return {
-          id: user.id,
-          firstName,
-          lastName,
-          email: user.email,
-          phoneNumber: '', // Not stored in admin format
-          createdAt: user.joinDate + 'T00:00:00.000Z'
-        };
+
+        const { error } = await supabase
+          .from('users')
+          .update({
+            first_name: firstName,
+            last_name: lastName,
+            balance: user.accountBalance,
+          })
+          .eq('id', user.id);
+
+        console.log('User update result:', { userId: user.id, error });
       });
-      localStorage.setItem('users', JSON.stringify(storedUsers));
     }
   }, [users]);
 

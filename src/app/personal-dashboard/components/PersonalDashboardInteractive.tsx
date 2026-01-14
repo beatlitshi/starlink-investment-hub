@@ -15,7 +15,7 @@ import AIAdvisor from './AIAdvisor';
 import SocialCopyTrading from './SocialCopyTrading';
 import AdvancedPortfolioAnalytics from './AdvancedPortfolioAnalytics';
 import Icon from '@/components/ui/AppIcon';
-import { emailNotificationService } from '@/services/emailNotificationService';
+import { useUserAuth } from '@/contexts/UserAuthContext';
 
 interface Investment {
   id: string;
@@ -73,6 +73,7 @@ interface TaxReport {
 }
 
 export default function PersonalDashboardInteractive() {
+  const { user } = useUserAuth();
   const [isHydrated, setIsHydrated] = useState(false);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -150,10 +151,7 @@ export default function PersonalDashboardInteractive() {
 
   }
 
-  const investments: Investment[] = [
-    // Initial investments are empty - users start with 0 balance
-    // Investments can be added later via admin panel or user deposits
-  ];
+  const investments: Investment[] = user?.investments || [];
 
   const portfolioData = {
     totalValue: investments.reduce((sum, inv) => sum + (inv.currentValue * inv.shares), 0),

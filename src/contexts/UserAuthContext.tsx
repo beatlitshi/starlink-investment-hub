@@ -9,6 +9,8 @@ interface User {
   firstName: string;
   lastName: string;
   phoneNumber: string;
+  balance: number;
+  investments: any[]; // Adjust type as needed
   createdAt: string;
 }
 
@@ -19,6 +21,8 @@ interface UserAuthContextType {
   register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   isLoading: boolean;
+  updateBalance: (newBalance: number) => Promise<void>;
+  updateInvestments: (investments: any[]) => Promise<void>;
 }
 
 interface RegisterData {
@@ -54,16 +58,40 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
-        // Get user metadata
-        const { firstName, lastName, phoneNumber } = session.user.user_metadata || {};
-        setUser({
-          id: session.user.id,
-          email: session.user.email || '',
-          firstName: firstName || '',
-          lastName: lastName || '',
-          phoneNumber: phoneNumber || '',
-          createdAt: session.user.created_at,
-        });
+        // Get user profile from database
+        const { data: profile, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('auth_id', session.user.id)
+          .single();
+
+        console.log('Profile fetch result:', { profile, error });
+
+        if (profile) {
+          setUser({
+            id: profile.id,
+            email: profile.email,
+            firstName: profile.first_name,
+            lastName: profile.last_name,
+            phoneNumber: profile.phone_number,
+            balance: profile.balance || 0,
+            investments: profile.investments || [],
+            createdAt: profile.created_at,
+          });
+        } else {
+          // Fallback to session metadata if profile not found
+          const { firstName, lastName, phoneNumber } = session.user.user_metadata || {};
+          setUser({
+            id: session.user.id,
+            email: session.user.email || '',
+            firstName: firstName || '',
+            lastName: lastName || '',
+            phoneNumber: phoneNumber || '',
+            balance: 0,
+            investments: [],
+            createdAt: session.user.created_at,
+          });
+        }
       }
       setIsLoading(false);
     };
@@ -74,15 +102,37 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (supabase) {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (session?.user) {
-          const { firstName, lastName, phoneNumber } = session.user.user_metadata || {};
-          setUser({
-            id: session.user.id,
-            email: session.user.email || '',
-            firstName: firstName || '',
-            lastName: lastName || '',
-            phoneNumber: phoneNumber || '',
-            createdAt: session.user.created_at,
-          });
+          // Get user profile from database
+          const { data: profile, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('auth_id', session.user.id)
+            .single();
+
+          if (profile) {
+            setUser({
+              id: profile.id,
+              email: profile.email,
+              firstName: profile.first_name,
+              lastName: profile.last_name,
+              phoneNumber: profile.phone_number,
+              balance: profile.balance || 0,
+              investments: profile.investments || [],
+              createdAt: profile.created_at,
+            });
+          } else {
+            const { firstName, lastName, phoneNumber } = session.user.user_metadata || {};
+            setUser({
+              id: session.user.id,
+              email: session.user.email || '',
+              firstName: firstName || '',
+              lastName: lastName || '',
+              phoneNumber: phoneNumber || '',
+              balance: 0,
+              investments: [],
+              createdAt: session.user.created_at,
+            });
+          }
         } else {
           setUser(null);
         }
@@ -169,6 +219,26 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
 
       if (data.user) {
+        // Insert user profile into database
+        const { error: insertError } = await supabase
+          .from('users')
+          .insert({
+            auth_id: data.user.id,
+            email: data.email,
+            first_name: data.firstName,
+            last_name: data.lastName,
+            phone_number: data.phoneNumber,
+            balance: 0,
+            investments: [],
+          });
+
+        console.log('User profile insert result:', { insertError });
+
+        if (insertError) {
+          console.error('Error inserting user profile:', insertError);
+          // Still return success as auth worked
+        }
+
         // User registered successfully
         return { success: true };
       }
@@ -225,12 +295,33 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const logout = async () => {
-    if (supabase) {
-      await supabase.auth.signOut();
+  const updateBalance = async (newBalance: number) => {
+    if (!user || !supabase) return;
+
+    const { error } = await supabase
+      .from('users')
+      .update({ balance: newBalance })
+      .eq('id', user.id);
+
+    if (error) {
+      console.error('Error updating balance:', error);
     } else {
-      setUser(null);
-      localStorage.removeItem('user');
+      setUser({ ...user, balance: newBalance });
+    }
+  };
+
+  const updateInvestments = async (investments: any[]) => {
+    if (!user || !supabase) return;
+
+    const { error } = await supabase
+      .from('users')
+      .update({ investments })
+      .eq('id', user.id);
+
+    if (error) {
+      console.error('Error updating investments:', error);
+    } else {
+      setUser({ ...user, investments });
     }
   };
 
@@ -243,6 +334,8 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         register,
         logout,
         isLoading,
+        updateBalance,
+        updateInvestments,
       }}
     >
       {children}
