@@ -65,8 +65,6 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           .eq('auth_id', session.user.id)
           .single();
 
-        console.log('Profile fetch result:', { profile, error });
-
         if (profile) {
           setUser({
             id: profile.id,
@@ -231,8 +229,6 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             balance: 0,
             investments: [],
           });
-
-        console.log('User profile insert result:', { insertError });
 
         if (insertError) {
           console.error('Error inserting user profile:', insertError);

@@ -121,7 +121,9 @@ export default function AdminDashboard() {
           })
           .eq('id', user.id);
 
-        console.log('User update result:', { userId: user.id, error });
+        if (error) {
+          console.error('Error updating user:', error);
+        }
       });
     }
   }, [users]);
