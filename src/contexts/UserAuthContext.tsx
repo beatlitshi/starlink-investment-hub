@@ -3,6 +3,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
+// Deploy trigger: Session persistence fixes for INITIAL_SESSION event handling
+
 interface User {
   id: string;
   authId: string;
