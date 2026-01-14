@@ -98,7 +98,19 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       };
     } catch (error) {
       console.error('Error in loadUserProfile:', error);
-      return null;
+      // Return a fallback user even on error to prevent null states
+      const { firstName, lastName, phoneNumber } = sessionUser?.user_metadata || {};
+      return {
+        id: authId,
+        authId: authId,
+        email: sessionUser?.email || '',
+        firstName: firstName || '',
+        lastName: lastName || '',
+        phoneNumber: phoneNumber || '',
+        balance: 0,
+        investments: [],
+        createdAt: sessionUser?.created_at || new Date().toISOString(),
+      };
     }
   };
 
@@ -147,9 +159,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (session?.user) {
           console.log('Loading user for event:', event);
           const userData = await loadUserProfile(session.user.id, session.user);
-          if (userData) {
-            setUser(userData);
-          }
+          setUser(userData);
         }
       } else if (event === 'SIGNED_OUT') {
         console.log('User signed out');
