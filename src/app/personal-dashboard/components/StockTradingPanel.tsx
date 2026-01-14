@@ -17,10 +17,20 @@ export default function StockTradingPanel() {
   const [buyAmount, setBuyAmount] = useState('');
   const [buyShares, setBuyShares] = useState('');
   const [selectedTab, setSelectedTab] = useState<'buy' | 'portfolio'>('buy');
+  const [portfolioValue, setPortfolioValue] = useState(0);
+  const [totalGain, setTotalGain] = useState({ amount: 0, percentage: 0 });
 
   useEffect(() => {
     refreshBalance();
   }, []);
+
+  // Recalculate portfolio when stocks or user investments change
+  useEffect(() => {
+    const newPortfolioValue = calculatePortfolioValue();
+    const newTotalGain = calculateTotalGain();
+    setPortfolioValue(newPortfolioValue);
+    setTotalGain(newTotalGain);
+  }, [stocks, user?.investments]);
 
   const handleBuyStock = async () => {
     if (!selectedStock || (!buyAmount && !buyShares) || !user) return;
@@ -103,8 +113,6 @@ export default function StockTradingPanel() {
   };
 
   const selectedStockData = stocks.find(s => s.symbol === selectedStock);
-  const portfolioValue = calculatePortfolioValue();
-  const totalGain = calculateTotalGain();
 
   return (
     <div className="space-y-6">

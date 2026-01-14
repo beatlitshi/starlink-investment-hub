@@ -84,24 +84,24 @@ export default function PersonalDashboardInteractive() {
   useEffect(() => {
     setIsHydrated(true);
     
-    // Refresh balance from database
+    // Refresh balance from database on mount
     refreshBalance();
 
     // Subscribe to real-time balance changes
-    if (user?.id) {
+    if (user?.authId) {
       const subscription = supabase
-        .channel(`user-${user.id}`)
+        .channel(`user-balance-${user.authId}`)
         .on(
           'postgres_changes',
           {
             event: 'UPDATE',
             schema: 'public',
             table: 'users',
-            filter: `id=eq.${user.id}`
+            filter: `auth_id=eq.${user.authId}`
           },
           (payload: any) => {
-            // When balance is updated by admin, refresh the data
-            if (payload.new.balance !== undefined) {
+            // When balance or investments are updated, refresh the data
+            if (payload.new.balance !== undefined || payload.new.investments !== undefined) {
               refreshBalance();
             }
           }
@@ -112,6 +112,7 @@ export default function PersonalDashboardInteractive() {
         subscription.unsubscribe();
       };
     }
+  }, [user?.authId, refreshBalance]);
 
     setAlerts([
     {

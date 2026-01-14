@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 
 interface User {
   id: string;
+  authId: string;
   email: string;
   firstName: string;
   lastName: string;
@@ -56,6 +57,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           if (profile) {
             setUser({
               id: profile.id,
+              authId: session.user.id,
               email: profile.email,
               firstName: profile.first_name,
               lastName: profile.last_name,
@@ -69,6 +71,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             const { firstName, lastName, phoneNumber } = session.user.user_metadata || {};
             setUser({
               id: session.user.id,
+              authId: session.user.id,
               email: session.user.email || '',
               firstName: firstName || '',
               lastName: lastName || '',
@@ -101,6 +104,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (profile) {
           setUser({
             id: profile.id,
+            authId: session.user.id,
             email: profile.email,
             firstName: profile.first_name,
             lastName: profile.last_name,
@@ -113,6 +117,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           const { firstName, lastName, phoneNumber } = session.user.user_metadata || {};
           setUser({
             id: session.user.id,
+            authId: session.user.id,
             email: session.user.email || '',
             firstName: firstName || '',
             lastName: lastName || '',
@@ -235,8 +240,8 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       const { data: profile, error } = await supabase
         .from('users')
-        .select('balance, investments')
-        .eq('id', user.id)
+        .select('*')
+        .eq('auth_id', user.authId)
         .single();
       
       if (error) {
