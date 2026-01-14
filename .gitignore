@@ -35,3 +35,14 @@ jest-test-results.json
 
 # Optional: if using TurboRepo or monorepo
 turbo/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Supabase local artifacts
+supabase/.temp
+supabase/.cache

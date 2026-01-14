@@ -73,14 +73,12 @@ export default function AdminDashboard() {
 
   const [users, setUsers] = useState<User[]>([]);
 
-  // Load users from Supabase
+  // Load users and transactions from Supabase
   useEffect(() => {
     const loadUsers = async () => {
-
       const { data, error } = await supabase
         .from('users')
         .select('*');
-
       if (error) {
         console.error('Error loading users:', error);
       } else if (data) {
@@ -88,43 +86,50 @@ export default function AdminDashboard() {
           id: user.id,
           name: `${user.first_name} ${user.last_name}`,
           email: user.email,
-          status: 'approved' as const, // Assume approved for now
+          phoneNumber: user.phone_number,
+          status: user.status || 'pending',
           joinDate: new Date(user.created_at).toLocaleDateString(),
-          dashboardAccess: true,
+          dashboardAccess: user.dashboard_access ?? true,
           accountBalance: user.balance || 0,
-          cryptoHoldings: 0, // Add if needed
+          cryptoHoldings: user.crypto_holdings || 0,
         }));
         setUsers(formattedUsers);
       }
     };
-
+    const loadTransactions = async () => {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .order('timestamp', { ascending: false });
+      if (error) {
+        console.error('Error loading transactions:', error);
+      } else if (data) {
+        setTransactions(data.map(tx => ({
+          id: tx.id,
+          userId: tx.user_id,
+          userName: tx.user_name,
+          type: tx.type,
+          amount: tx.amount,
+          status: tx.status,
+          timestamp: tx.timestamp,
+          notes: tx.notes,
+        })));
+      }
+    };
     loadUsers();
+    loadTransactions();
   }, []);
 
-  // Save users to database when they change
-  useEffect(() => {
-    if (users.length > 0) {
-      // Update database
-      users.forEach(async (user) => {
-
-        const [firstName, ...lastNameParts] = user.name.split(' ');
-        const lastName = lastNameParts.join(' ');
-
-        const { error } = await supabase
-          .from('users')
-          .update({
-            first_name: firstName,
-            last_name: lastName,
-            balance: user.accountBalance,
-          })
-          .eq('id', user.id);
-
-        if (error) {
-          console.error('Error updating user:', error);
-        }
-      });
+  // Save user balance to database when changed
+  const updateUserBalance = async (userId: string, newBalance: number) => {
+    const { error } = await supabase
+      .from('users')
+      .update({ balance: newBalance })
+      .eq('id', userId);
+    if (error) {
+      console.error('Error updating user balance:', error);
     }
-  }, [users]);
+  };
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
@@ -162,41 +167,58 @@ export default function AdminDashboard() {
     }, 500);
   };
 
-  const handleUserAction = (userId: string, action: 'approve' | 'reject' | 'toggleDashboard') => {
-    setUsers(users.map(user => {
-      if (user.id === userId) {
-        if (action === 'approve') return { ...user, status: 'approved', dashboardAccess: true };
-        if (action === 'reject') return { ...user, status: 'rejected', dashboardAccess: false };
-        if (action === 'toggleDashboard') return { ...user, dashboardAccess: !user.dashboardAccess };
-      }
-      return user;
-    }));
+  const handleUserAction = async (userId: string, action: 'approve' | 'reject' | 'toggleDashboard') => {
+    const user = users.find(u => u.id === userId);
+    if (!user) return;
+    let updates: any = {};
+    if (action === 'approve') updates = { status: 'approved', dashboard_access: true };
+    if (action === 'reject') updates = { status: 'rejected', dashboard_access: false };
+    if (action === 'toggleDashboard') updates = { dashboard_access: !user.dashboardAccess };
+    await supabase.from('users').update(updates).eq('id', userId);
+    setUsers(users.map(u => u.id === userId ? { ...u, ...updates } : u));
   };
 
-  const handleAddMoney = () => {
+  const handleAddMoney = async () => {
     if (!depositForm.userId || !depositForm.amount) return;
-
     const user = users.find(u => u.id === depositForm.userId);
     if (!user) return;
-
-    const newTransaction: Transaction = {
-      id: Date.now().toString(),
-      userId: depositForm.userId,
-      userName: user.name,
-      type: 'deposit',
-      amount: parseFloat(depositForm.amount),
-      status: 'approved',
-      timestamp: new Date().toLocaleString('de-DE'),
-      notes: depositForm.notes || 'Manual deposit by admin',
-    };
-
-    setTransactions([newTransaction, ...transactions]);
-    setUsers(users.map(u => 
-      u.id === depositForm.userId 
-        ? { ...u, accountBalance: u.accountBalance + parseFloat(depositForm.amount) }
+    const amount = parseFloat(depositForm.amount);
+    // Add transaction to DB
+    const { data: tx, error: txError } = await supabase
+      .from('transactions')
+      .insert({
+        user_id: user.id,
+        user_name: user.name,
+        type: 'deposit',
+        amount,
+        status: 'approved',
+        timestamp: new Date().toISOString(),
+        notes: depositForm.notes || 'Manual deposit by admin',
+      })
+      .select()
+      .single();
+    if (txError) {
+      console.error('Error adding transaction:', txError);
+      return;
+    }
+    // Update user balance in DB
+    await updateUserBalance(user.id, user.accountBalance + amount);
+    // Update local state
+    setTransactions([{
+      id: tx.id,
+      userId: tx.user_id,
+      userName: tx.user_name,
+      type: tx.type,
+      amount: tx.amount,
+      status: tx.status,
+      timestamp: tx.timestamp,
+      notes: tx.notes,
+    }, ...transactions]);
+    setUsers(users.map(u =>
+      u.id === user.id
+        ? { ...u, accountBalance: u.accountBalance + amount }
         : u
     ));
-
     setDepositForm({ userId: '', amount: '', notes: '' });
     setShowDepositModal(false);
   };
@@ -560,56 +582,59 @@ export default function AdminDashboard() {
           <div className="space-y-6">
             <div className="p-6 bg-card rounded-lg shadow-depth">
               <h2 className="text-2xl font-headline font-bold text-foreground mb-6">User Management</h2>
-              
-              <div className="space-y-4">
-                {users.map((user) => (
-                  <div key={user.id} className="p-4 bg-background rounded-md border border-border">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-3 mb-2">
-                          <h3 className="text-lg font-semibold text-foreground">{user.name}</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="py-2 px-3 text-left">Name</th>
+                      <th className="py-2 px-3 text-left">Email</th>
+                      <th className="py-2 px-3 text-left">Phone</th>
+                      <th className="py-2 px-3 text-left">Status</th>
+                      <th className="py-2 px-3 text-left">Join Date</th>
+                      <th className="py-2 px-3 text-left">Balance (€)</th>
+                      <th className="py-2 px-3 text-left">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.map((user) => (
+                      <tr key={user.id} className="border-b border-border">
+                        <td className="py-2 px-3">{user.name}</td>
+                        <td className="py-2 px-3">{user.email}</td>
+                        <td className="py-2 px-3">{user.phoneNumber || '-'}</td>
+                        <td className="py-2 px-3">
                           <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                             user.status === 'approved' ? 'bg-green-500/10 text-green-500' :
                             user.status === 'rejected'? 'bg-red-500/10 text-red-500' : 'bg-yellow-500/10 text-yellow-500'
                           }`}>
                             {user.status.toUpperCase()}
                           </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-1">{user.email}</p>
-                        <p className="text-xs text-muted-foreground">Joined: {user.joinDate}</p>
-                      </div>
-
-                      <div className="flex items-center space-x-2">
-                        {user.status === 'pending' && (
-                          <>
-                            <button
-                              onClick={() => handleUserAction(user.id, 'approve')}
-                              className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-smooth"
-                            >
-                              Approve
-                            </button>
-                            <button
-                              onClick={() => handleUserAction(user.id, 'reject')}
-                              className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-smooth"
-                            >
-                              Reject
-                            </button>
-                          </>
-                        )}
-                        <button
-                          onClick={() => handleUserAction(user.id, 'toggleDashboard')}
-                          className={`px-4 py-2 rounded-md transition-smooth ${
-                            user.dashboardAccess
-                              ? 'bg-primary text-primary-foreground'
-                              : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                          }`}
-                        >
-                          {user.dashboardAccess ? 'Dashboard Enabled' : 'Enable Dashboard'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                        </td>
+                        <td className="py-2 px-3">{user.joinDate}</td>
+                        <td className="py-2 px-3">{user.accountBalance.toLocaleString('de-DE', { minimumFractionDigits: 2 })}</td>
+                        <td className="py-2 px-3 space-x-2">
+                          {user.status === 'pending' && (
+                            <>
+                              <button
+                                onClick={() => handleUserAction(user.id, 'approve')}
+                                className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600"
+                              >Approve</button>
+                              <button
+                                onClick={() => handleUserAction(user.id, 'reject')}
+                                className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+                              >Reject</button>
+                            </>
+                          )}
+                          <button
+                            onClick={() => handleUserAction(user.id, 'toggleDashboard')}
+                            className={`px-3 py-1 rounded ${user.dashboardAccess ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
+                          >
+                            {user.dashboardAccess ? 'Dashboard Enabled' : 'Enable Dashboard'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
