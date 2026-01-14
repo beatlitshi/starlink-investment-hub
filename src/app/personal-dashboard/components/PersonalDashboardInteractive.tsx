@@ -138,7 +138,7 @@ export default function PersonalDashboardInteractive() {
         subscription.unsubscribe();
       };
     }
-  }, [user?.authId, refreshBalance]);
+  }, [user?.authId, user]);
 
   useEffect(() => {
     setAlerts([

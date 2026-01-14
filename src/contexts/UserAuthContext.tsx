@@ -53,7 +53,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         .single();
 
       if (error) {
-        console.error('Error loading user profile:', error);
+        console.error('Error loading user profile:', error.message || JSON.stringify(error));
         // Fall back to session metadata
         const { firstName, lastName, phoneNumber } = sessionUser?.user_metadata || {};
         return {
