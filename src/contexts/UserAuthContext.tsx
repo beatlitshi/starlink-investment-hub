@@ -23,6 +23,7 @@ interface UserAuthContextType {
   isLoading: boolean;
   updateBalance: (newBalance: number) => Promise<void>;
   updateInvestments: (investments: any[]) => Promise<void>;
+  refreshBalance: () => Promise<void>;
 }
 
 interface RegisterData {
@@ -136,6 +137,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         email: data.email,
         password: data.password,
         options: {
+          emailRedirectTo: `${window.location.origin}/personal-dashboard`,
           data: {
             firstName: data.firstName,
             lastName: data.lastName,
@@ -228,6 +230,29 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
+  const refreshBalance = async () => {
+    if (!user) return;
+    try {
+      const { data: profile, error } = await supabase
+        .from('users')
+        .select('balance, investments')
+        .eq('id', user.id)
+        .single();
+      
+      if (error) {
+        console.error('Error refreshing balance:', error);
+      } else if (profile) {
+        setUser({
+          ...user,
+          balance: profile.balance || 0,
+          investments: profile.investments || [],
+        });
+      }
+    } catch (e) {
+      console.error('Error refreshing balance:', e);
+    }
+  };
+
   const logout = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -244,6 +269,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         isLoading,
         updateBalance,
         updateInvestments,
+        refreshBalance,
       }}
     >
       {children}

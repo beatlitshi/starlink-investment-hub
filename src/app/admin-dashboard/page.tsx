@@ -312,11 +312,56 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleConfirmUser = async (authId: string) => {
+    if (!authId) {
+      alert('User has no auth ID');
+      return;
+    }
+    if (!confirm('Manually confirm this user\\'s email?')) return;
+    try {
+      const res = await fetch('/api/admin/confirm-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ authId }),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        alert(`Failed to confirm user: ${json.error}`);
+      } else {
+        alert('User email confirmed successfully');
+        loadUsers(); // Refresh the list
+      }
+    } catch (e: any) {
+      alert(`Failed to confirm user: ${e.message}`);
+    }
+  };
+
   const handleAddMoney = async () => {
     if (!depositForm.userId || !depositForm.amount) return;
     const user = users.find(u => u.id === depositForm.userId);
     if (!user) return;
     const amount = parseFloat(depositForm.amount);
+    const newBalance = user.accountBalance + amount;
+    
+    // Update user balance in DB via admin API
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: user.id, updates: { balance: newBalance } }),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        console.error('Error updating user balance:', json.error);
+        alert('Failed to update balance');
+        return;
+      }
+    } catch (e) {
+      console.error('Error updating user balance:', e);
+      alert('Failed to update balance');
+      return;
+    }
+
     // Add transaction to DB
     const { data: tx, error: txError } = await supabase
       .from('transactions')
@@ -335,8 +380,7 @@ export default function AdminDashboard() {
       console.error('Error adding transaction:', txError);
       return;
     }
-    // Update user balance in DB
-    await updateUserBalance(user.id, user.accountBalance + amount);
+    
     // Update local state
     setTransactions([{
       id: tx.id,
@@ -350,11 +394,12 @@ export default function AdminDashboard() {
     }, ...transactions]);
     setUsers(users.map(u =>
       u.id === user.id
-        ? { ...u, accountBalance: u.accountBalance + amount }
+        ? { ...u, accountBalance: newBalance }
         : u
     ));
     setDepositForm({ userId: '', amount: '', notes: '' });
     setShowDepositModal(false);
+    alert('Balance updated successfully');
   };
 
   const handleManualDeposit = () => {
@@ -763,6 +808,11 @@ export default function AdminDashboard() {
                                 onClick={() => handleUserAction(user.id, 'reject')}
                                 className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
                               >Reject</button>
+                              <button
+                                onClick={() => handleConfirmUser((user as any).authId)}
+                                className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                                title="Manually confirm email"
+                              >Confirm Email</button>
                             </>
                           )}
                           <button
@@ -841,14 +891,9 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <button
-                onClick={refreshStocks}
-                disabled={stocksLoading}
-                className="flex items-center space-x-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-accent transition-smooth disabled:opacity-50"
-              >
-                <Icon name="ArrowPathIcon" size={20} className={stocksLoading ? 'animate-spin' : ''} />
-                <span>{stocksLoading ? 'Refreshing...' : 'Force Refresh Now'}</span>
-              </button>
+              <div className="text-sm text-muted-foreground">
+                Stock prices update automatically based on the interval selected above.
+              </div>
             </div>
 
             {/* Stock Price List with Manual Override */}
