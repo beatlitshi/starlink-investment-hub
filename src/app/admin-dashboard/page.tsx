@@ -76,7 +76,6 @@ export default function AdminDashboard() {
   // Load users from Supabase
   useEffect(() => {
     const loadUsers = async () => {
-      if (!supabase) return;
 
       const { data, error } = await supabase
         .from('users')
@@ -107,7 +106,6 @@ export default function AdminDashboard() {
     if (users.length > 0) {
       // Update database
       users.forEach(async (user) => {
-        if (!supabase) return;
 
         const [firstName, ...lastNameParts] = user.name.split(' ');
         const lastName = lastNameParts.join(' ');
