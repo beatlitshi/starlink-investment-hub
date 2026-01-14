@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Icon from '@/components/ui/AppIcon';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
@@ -71,22 +71,25 @@ export default function AdminDashboard() {
     refreshInterval: syncInterval,
   });
 
-  // Load actual registered users from localStorage
-  const loadUsers = () => {
-    const storedUsers = JSON.parse(localStorage.getItem('users') || '[]');
-    return storedUsers.map((user: any) => ({
-      id: user.id,
-      name: `${user.firstName} ${user.lastName}`,
-      email: user.email,
-      status: 'approved' as const, // Assume approved for now
-      joinDate: user.createdAt ? new Date(user.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-      dashboardAccess: true,
-      accountBalance: 0, // Mock
-      cryptoHoldings: 0, // Mock
-    }));
-  };
+  const [users, setUsers] = useState<User[]>([]);
 
-  const [users, setUsers] = useState<User[]>(loadUsers());
+  // Load actual registered users from localStorage on client-side
+  useEffect(() => {
+    const loadUsers = () => {
+      const storedUsers = JSON.parse(localStorage.getItem('users') || '[]');
+      return storedUsers.map((user: any) => ({
+        id: user.id,
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        status: 'approved' as const, // Assume approved for now
+        joinDate: user.createdAt ? new Date(user.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        dashboardAccess: true,
+        accountBalance: 0, // Mock
+        cryptoHoldings: 0, // Mock
+      }));
+    };
+    setUsers(loadUsers());
+  }, []);
 
   const [transactions, setTransactions] = useState<Transaction[]>([
     { id: '1', userId: '2', userName: 'Jane Smith', type: 'deposit', amount: 25000, status: 'approved', timestamp: '2026-01-08 10:30', notes: 'Initial deposit' },
