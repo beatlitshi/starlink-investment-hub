@@ -41,104 +41,123 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // Check for existing session and persist it
-    const checkUser = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          // Get user profile from database
-          const { data: profile, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('auth_id', session.user.id)
-            .single();
+  // Helper function to load user profile from database
+  const loadUserProfile = async (authId: string, sessionUser: any) => {
+    try {
+      const { data: profile, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('auth_id', authId)
+        .single();
 
-          if (profile) {
-            setUser({
-              id: profile.id,
-              authId: session.user.id,
-              email: profile.email,
-              firstName: profile.first_name,
-              lastName: profile.last_name,
-              phoneNumber: profile.phone_number,
-              balance: profile.balance || 0,
-              investments: profile.investments || [],
-              createdAt: profile.created_at,
-            });
+      if (error) {
+        console.error('Error loading user profile:', error);
+        // Fall back to session metadata
+        const { firstName, lastName, phoneNumber } = sessionUser?.user_metadata || {};
+        return {
+          id: authId,
+          authId: authId,
+          email: sessionUser?.email || '',
+          firstName: firstName || '',
+          lastName: lastName || '',
+          phoneNumber: phoneNumber || '',
+          balance: 0,
+          investments: [],
+          createdAt: sessionUser?.created_at || new Date().toISOString(),
+        };
+      }
+
+      if (profile) {
+        return {
+          id: profile.id,
+          authId: authId,
+          email: profile.email || '',
+          firstName: profile.first_name || '',
+          lastName: profile.last_name || '',
+          phoneNumber: profile.phone_number || '',
+          balance: profile.balance || 0,
+          investments: profile.investments || [],
+          createdAt: profile.created_at || new Date().toISOString(),
+        };
+      }
+
+      // Profile doesn't exist yet (new user)
+      const { firstName, lastName, phoneNumber } = sessionUser?.user_metadata || {};
+      return {
+        id: authId,
+        authId: authId,
+        email: sessionUser?.email || '',
+        firstName: firstName || '',
+        lastName: lastName || '',
+        phoneNumber: phoneNumber || '',
+        balance: 0,
+        investments: [],
+        createdAt: sessionUser?.created_at || new Date().toISOString(),
+      };
+    } catch (error) {
+      console.error('Error in loadUserProfile:', error);
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    // Check for existing session on app load
+    const initializeAuth = async () => {
+      try {
+        console.log('Initializing auth...');
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error('Session error:', sessionError);
+          setIsLoading(false);
+          return;
+        }
+
+        if (session?.user) {
+          console.log('Session found, loading user profile...');
+          const userData = await loadUserProfile(session.user.id, session.user);
+          if (userData) {
+            console.log('User loaded:', userData.email);
+            setUser(userData);
           } else {
-            // Fallback to session metadata if profile not found
-            const { firstName, lastName, phoneNumber } = session.user.user_metadata || {};
-            setUser({
-              id: session.user.id,
-              authId: session.user.id,
-              email: session.user.email || '',
-              firstName: firstName || '',
-              lastName: lastName || '',
-              phoneNumber: phoneNumber || '',
-              balance: 0,
-              investments: [],
-              createdAt: session.user.created_at,
-            });
+            console.log('Failed to load user profile');
+            setUser(null);
           }
         } else {
-          // No session, user is logged out
+          console.log('No session found');
           setUser(null);
         }
-        setIsLoading(false);
       } catch (error) {
-        console.error('Error checking user session:', error);
+        console.error('Error initializing auth:', error);
+        setUser(null);
+      } finally {
         setIsLoading(false);
       }
     };
 
-    checkUser();
+    initializeAuth();
 
-    // Listen for auth changes and keep session alive
+    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        // User signed in or token refreshed
-        if (session?.user) {
-          const { data: profile } = await supabase
-            .from('users')
-            .select('*')
-            .eq('auth_id', session.user.id)
-            .single();
+      console.log('Auth state changed:', event);
 
-          if (profile) {
-            setUser({
-              id: profile.id,
-              authId: session.user.id,
-              email: profile.email,
-              firstName: profile.first_name,
-              lastName: profile.last_name,
-              phoneNumber: profile.phone_number,
-              balance: profile.balance || 0,
-              investments: profile.investments || [],
-              createdAt: profile.created_at,
-            });
-          } else {
-            const { firstName, lastName, phoneNumber } = session.user.user_metadata || {};
-            setUser({
-              id: session.user.id,
-              authId: session.user.id,
-              email: session.user.email || '',
-              firstName: firstName || '',
-              lastName: lastName || '',
-              phoneNumber: phoneNumber || '',
-              balance: 0,
-              investments: [],
-              createdAt: session.user.created_at,
-            });
+      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
+        if (session?.user) {
+          console.log('Loading user for event:', event);
+          const userData = await loadUserProfile(session.user.id, session.user);
+          if (userData) {
+            setUser(userData);
           }
         }
       } else if (event === 'SIGNED_OUT') {
+        console.log('User signed out');
         setUser(null);
       }
+
       setIsLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => subscription?.unsubscribe();
   }, []);
 
   const register = async (data: RegisterData): Promise<{ success: boolean; error?: string }> => {
