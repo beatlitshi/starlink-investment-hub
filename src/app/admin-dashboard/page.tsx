@@ -190,9 +190,28 @@ export default function AdminDashboard() {
       })
       .subscribe();
 
+    // Also listen to broadcast changes if enabled server-side
+    const usersBroadcastChannel = supabase
+      .channel('public:users')
+      .on('broadcast', { event: 'postgres_changes' }, () => {
+        // Refresh users list on any broadcasted change
+        loadUsers();
+      })
+      .subscribe();
+
+    const transactionsBroadcastChannel = supabase
+      .channel('public:transactions')
+      .on('broadcast', { event: 'postgres_changes' }, () => {
+        // Refresh transactions list on any broadcasted change
+        loadTransactions();
+      })
+      .subscribe();
+
     return () => {
       try { supabase.removeChannel(usersChannel); } catch {}
       try { supabase.removeChannel(transactionsChannel); } catch {}
+      try { supabase.removeChannel(usersBroadcastChannel); } catch {}
+      try { supabase.removeChannel(transactionsBroadcastChannel); } catch {}
     };
   }, []);
 
