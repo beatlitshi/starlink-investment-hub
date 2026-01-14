@@ -132,7 +132,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const register = async (data: RegisterData): Promise<{ success: boolean; error?: string }> => {
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const { data: authData, error } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
         options: {
@@ -148,12 +148,12 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return { success: false, error: error.message };
       }
 
-      if (data.user) {
+      if (authData.user) {
         // Insert user profile into database
         const { error: insertError } = await supabase
           .from('users')
           .insert({
-            auth_id: data.user.id,
+            auth_id: authData.user.id,
             email: data.email,
             first_name: data.firstName,
             last_name: data.lastName,
