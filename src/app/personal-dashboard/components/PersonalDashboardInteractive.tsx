@@ -14,6 +14,7 @@ import TaxReporting from './TaxReporting';
 import AIAdvisor from './AIAdvisor';
 import SocialCopyTrading from './SocialCopyTrading';
 import AdvancedPortfolioAnalytics from './AdvancedPortfolioAnalytics';
+import StockTradingPanel from './StockTradingPanel';
 import Icon from '@/components/ui/AppIcon';
 import { useUserAuth } from '@/contexts/UserAuthContext';
 
@@ -73,14 +74,17 @@ interface TaxReport {
 }
 
 export default function PersonalDashboardInteractive() {
-  const { user } = useUserAuth();
+  const { user, refreshBalance } = useUserAuth();
   const [isHydrated, setIsHydrated] = useState(false);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
-  const [selectedView, setSelectedView] = useState<'overview' | 'investments' | 'analytics' | 'goals' | 'tax' | 'ai' | 'social' | 'advanced'>('overview');
+  const [selectedView, setSelectedView] = useState<'overview' | 'investments' | 'analytics' | 'goals' | 'tax' | 'ai' | 'social' | 'advanced' | 'trading'>('overview');
 
   useEffect(() => {
     setIsHydrated(true);
+    
+    // Refresh balance from database
+    refreshBalance();
 
     setAlerts([
     {
@@ -154,13 +158,14 @@ export default function PersonalDashboardInteractive() {
   const investments: Investment[] = user?.investments || [];
 
   const portfolioData = {
-    totalValue: investments.reduce((sum, inv) => sum + (inv.currentValue * inv.shares), 0),
+    totalValue: (user?.balance || 0) + investments.reduce((sum, inv) => sum + (inv.currentValue * inv.shares), 0),
     totalInvestment: investments.reduce((sum, inv) => sum + inv.invested, 0),
     totalReturn: investments.reduce((sum, inv) => sum + inv.returnAmount, 0),
     returnPercentage: investments.length > 0 ? (investments.reduce((sum, inv) => sum + inv.returnAmount, 0) / investments.reduce((sum, inv) => sum + inv.invested, 0)) * 100 : 0,
     dayChange: investments.reduce((sum, inv) => sum + inv.dayChange, 0),
     dayChangePercentage: investments.length > 0 ? (investments.reduce((sum, inv) => sum + inv.dayChange, 0) / investments.reduce((sum, inv) => sum + (inv.currentValue * inv.shares), 0)) * 100 : 0,
-    cryptoBonus: investments.filter(inv => inv.isCrypto).reduce((sum, inv) => sum + (inv.cryptoBonus || 0), 0)
+    cryptoBonus: investments.filter(inv => inv.isCrypto).reduce((sum, inv) => sum + (inv.cryptoBonus || 0), 0),
+    cashBalance: user?.balance || 0,
   };
 
 
@@ -224,7 +229,7 @@ export default function PersonalDashboardInteractive() {
     label: 'Investieren',
     icon: 'PlusCircleIcon',
     color: 'primary',
-    onClick: () => alert('Investieren-Funktion')
+    onClick: () => setSelectedView('trading')
   },
   {
     id: '2',
@@ -602,6 +607,12 @@ export default function PersonalDashboardInteractive() {
       {selectedView === 'advanced' && (
         <div className="space-y-6">
           <AdvancedPortfolioAnalytics investments={investments} portfolioValue={portfolioData.totalValue} />
+        </div>
+      )}
+
+      {selectedView === 'trading' && (
+        <div className="space-y-6">
+          <StockTradingPanel />
         </div>
       )}
     </div>);
