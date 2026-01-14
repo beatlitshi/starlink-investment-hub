@@ -1,5 +1,12 @@
-export function supabase(...args) {
-  // eslint-disable-next-line no-console
-  console.warn('Placeholder: supabase is not implemented yet.', args);
-  return null;
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.warn('Supabase environment variables not set. Using placeholder.');
 }
+
+export const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
+
+export default supabase;
