@@ -130,13 +130,8 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (session?.user) {
           console.log('Session found, loading user profile...');
           const userData = await loadUserProfile(session.user.id, session.user);
-          if (userData) {
-            console.log('User loaded:', userData.email);
-            setUser(userData);
-          } else {
-            console.log('Failed to load user profile');
-            setUser(null);
-          }
+          console.log('User loaded:', userData?.email);
+          setUser(userData);
         } else {
           console.log('No session found');
           setUser(null);

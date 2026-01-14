@@ -110,34 +110,34 @@ export default function PersonalDashboardInteractive() {
   }
   
   useEffect(() => {
+    if (!user?.authId) return;
+
     // Refresh balance from database on mount
     refreshBalance();
 
     // Subscribe to real-time balance changes
-    if (user?.authId) {
-      const subscription = supabase
-        .channel(`user-balance-${user.authId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'users',
-            filter: `auth_id=eq.${user.authId}`
-          },
-          (payload: any) => {
-            // When balance or investments are updated, refresh the data
-            if (payload.new.balance !== undefined || payload.new.investments !== undefined) {
-              refreshBalance();
-            }
+    const subscription = supabase
+      .channel(`user-balance-${user.authId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'users',
+          filter: `auth_id=eq.${user.authId}`
+        },
+        (payload: any) => {
+          // When balance or investments are updated, refresh the data
+          if (payload.new.balance !== undefined || payload.new.investments !== undefined) {
+            refreshBalance();
           }
-        )
-        .subscribe();
+        }
+      )
+      .subscribe();
 
-      return () => {
-        subscription.unsubscribe();
-      };
-    }
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [user?.authId, user]);
 
   useEffect(() => {
