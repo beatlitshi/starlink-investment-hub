@@ -75,7 +75,7 @@ interface TaxReport {
 }
 
 export default function PersonalDashboardInteractive() {
-  const { user, refreshBalance } = useUserAuth();
+  const { user, refreshBalance, isLoading: authLoading } = useUserAuth();
   const [isHydrated, setIsHydrated] = useState(false);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -83,7 +83,33 @@ export default function PersonalDashboardInteractive() {
 
   useEffect(() => {
     setIsHydrated(true);
-    
+  }, []);
+
+  // Wait for auth to load before showing content
+  if (authLoading || !isHydrated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground font-mono">Lade Dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If not authenticated, show a message (user should be redirected by route protection)
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <p className="text-muted-foreground font-body text-lg">Nicht authentifiziert</p>
+          <p className="text-muted-foreground font-body">Bitte melden Sie sich an, um auf das Dashboard zuzugreifen.</p>
+        </div>
+      </div>
+    );
+  }
+  
+  useEffect(() => {
     // Refresh balance from database on mount
     refreshBalance();
 
@@ -172,17 +198,6 @@ export default function PersonalDashboardInteractive() {
     }
     ]);
   }, []);
-
-  if (!isHydrated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground font-mono">Lade Dashboard...</p>
-        </div>
-      </div>);
-
-  }
 
   const investments: Investment[] = user?.investments || [];
 
