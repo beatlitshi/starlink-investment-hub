@@ -114,6 +114,7 @@ export default function PersonalDashboardInteractive() {
     }
   }, [user?.authId, refreshBalance]);
 
+  useEffect(() => {
     setAlerts([
     {
       id: '1',
@@ -170,7 +171,7 @@ export default function PersonalDashboardInteractive() {
       category: 'Kurzfristig'
     }
     ]);
-  }, [user?.authId, refreshBalance]);
+  }, []);
 
   if (!isHydrated) {
     return (
