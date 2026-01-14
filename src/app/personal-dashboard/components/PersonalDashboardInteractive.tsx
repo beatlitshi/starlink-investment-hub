@@ -456,45 +456,45 @@ export default function PersonalDashboardInteractive() {
   };
 
   // Add investment alert monitoring
-  useEffect(() => {
-    const checkInvestmentAlerts = () => {
-      investments.forEach(investment => {
-        const priceChange = ((investment.currentValue - investment.invested) / investment.invested) * 100;
+  // useEffect(() => {
+  //   const checkInvestmentAlerts = () => {
+  //     investments.forEach(investment => {
+  //       const priceChange = ((investment.currentValue - investment.invested) / investment.invested) * 100;
         
-        // High gain alert (>20%)
-        if (priceChange > 20) {
-          sendInvestmentAlert({
-            alertType: 'High Profit Alert',
-            message: `Your ${investment.name} investment has gained over 20%!`,
-            stockName: investment.name,
-            currentPrice: investment.currentValue,
-            priceChange: priceChange,
-            triggerCondition: 'Price gain > 20%',
-            severity: 'high',
-            recommendation: 'Consider taking profits or adjusting your position.'
-          });
-        }
+  //       // High gain alert (>20%)
+  //       if (priceChange > 20) {
+  //         sendInvestmentAlert({
+  //           alertType: 'High Profit Alert',
+  //           message: `Your ${investment.name} investment has gained over 20%!`,
+  //           stockName: investment.name,
+  //           currentPrice: investment.currentValue,
+  //           priceChange: priceChange,
+  //           triggerCondition: 'Price gain > 20%',
+  //           severity: 'high',
+  //           recommendation: 'Consider taking profits or adjusting your position.'
+  //         });
+  //       }
         
-        // Loss alert (<-10%)
-        if (priceChange < -10) {
-          sendInvestmentAlert({
-            alertType: 'Loss Alert',
-            message: `Your ${investment.name} investment has decreased by more than 10%.`,
-            stockName: investment.name,
-            currentPrice: investment.currentValue,
-            priceChange: priceChange,
-            triggerCondition: 'Price loss > 10%',
-            severity: 'high',
-            recommendation: 'Review your investment strategy and consider your risk tolerance.'
-          });
-        }
-      });
-    };
+  //       // Loss alert (<-10%)
+  //       if (priceChange < -10) {
+  //         sendInvestmentAlert({
+  //           alertType: 'Loss Alert',
+  //           message: `Your ${investment.name} investment has decreased by more than 10%.`,
+  //           stockName: investment.name,
+  //           currentPrice: investment.currentValue,
+  //           priceChange: priceChange,
+  //           triggerCondition: 'Price loss > 10%',
+  //           severity: 'high',
+  //           recommendation: 'Review your investment strategy and consider your risk tolerance.'
+  //         });
+  //       }
+  //     });
+  //   };
 
-    // Check alerts every 5 minutes
-    const alertInterval = setInterval(checkInvestmentAlerts, 5 * 60 * 1000);
-    return () => clearInterval(alertInterval);
-  }, [investments]);
+  //   // Check alerts every 5 minutes
+  //   const alertInterval = setInterval(checkInvestmentAlerts, 5 * 60 * 1000);
+  //   return () => clearInterval(alertInterval);
+  // }, [investments]);
 
   // Add portfolio milestone monitoring
   useEffect(() => {
