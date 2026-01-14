@@ -32,6 +32,9 @@ const Footer = () => {
       { name: 'Impressum', path: '#' },
       { name: 'Cookie-Richtlinie', path: '#' },
     ],
+    admin: [
+      { name: 'Admin Panel', path: '/admin-dashboard' },
+    ],
   };
 
   const socialLinks = [
@@ -43,7 +46,7 @@ const Footer = () => {
   return (
     <footer className="bg-card border-t border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-8 mb-8">
           <div className="lg:col-span-2">
             <Link href="/homepage" className="flex items-center space-x-3 mb-4">
               <div className="relative">
@@ -134,6 +137,24 @@ const Footer = () => {
                   <Link
                     href={link.path}
                     className="text-muted-foreground hover:text-primary transition-smooth font-body"
+                  >
+                    {link.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="text-xs font-mono font-bold text-muted-foreground/50 mb-4 uppercase tracking-widest">
+              ⚙️ System
+            </h3>
+            <ul className="space-y-2">
+              {footerLinks.admin.map((link) => (
+                <li key={link.name}>
+                  <Link
+                    href={link.path}
+                    className="text-xs text-muted-foreground/60 hover:text-primary transition-smooth font-mono"
                   >
                     {link.name}
                   </Link>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Icon from '@/components/ui/AppIcon';
+import StarlinkAntenna from './StarlinkAntenna';
 
 interface HeroSectionProps {
   onExploreClick: () => void;
@@ -64,70 +65,80 @@ const HeroSection = ({ onExploreClick }: HeroSectionProps) => {
         ))}
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <div className="mb-8 inline-block">
-          <div className="relative">
-            <div className="absolute inset-0 bg-primary rounded-full blur-3xl opacity-30 animate-pulse"></div>
-            <svg
-              className="relative w-32 h-32 mx-auto"
-              viewBox="0 0 128 128"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <circle cx="64" cy="64" r="60" stroke="currentColor" strokeWidth="2" className="text-primary" />
-              <circle cx="64" cy="64" r="45" stroke="currentColor" strokeWidth="1" className="text-primary opacity-50" />
-              <circle cx="64" cy="64" r="30" fill="currentColor" className="text-primary opacity-80" />
-              <circle cx="64" cy="20" r="4" fill="currentColor" className="text-secondary animate-pulse" />
-              <circle cx="104" cy="64" r="4" fill="currentColor" className="text-secondary animate-pulse" style={{ animationDelay: '0.3s' }} />
-              <circle cx="64" cy="108" r="4" fill="currentColor" className="text-secondary animate-pulse" style={{ animationDelay: '0.6s' }} />
-              <circle cx="24" cy="64" r="4" fill="currentColor" className="text-secondary animate-pulse" style={{ animationDelay: '0.9s' }} />
-              <circle cx="92" cy="36" r="3" fill="currentColor" className="text-accent animate-pulse" style={{ animationDelay: '0.2s' }} />
-              <circle cx="92" cy="92" r="3" fill="currentColor" className="text-accent animate-pulse" style={{ animationDelay: '0.5s' }} />
-              <circle cx="36" cy="92" r="3" fill="currentColor" className="text-accent animate-pulse" style={{ animationDelay: '0.8s' }} />
-              <circle cx="36" cy="36" r="3" fill="currentColor" className="text-accent animate-pulse" style={{ animationDelay: '1.1s' }} />
-            </svg>
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          {/* Left content */}
+          <div className="text-center lg:text-left">
+            <div className="mb-8 inline-block lg:block">
+              <div className="relative">
+                <div className="absolute inset-0 bg-primary rounded-full blur-3xl opacity-30 animate-pulse"></div>
+                <svg
+                  className="relative w-32 h-32 mx-auto lg:mx-0"
+                  viewBox="0 0 128 128"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <circle cx="64" cy="64" r="60" stroke="currentColor" strokeWidth="2" className="text-primary" />
+                  <circle cx="64" cy="64" r="45" stroke="currentColor" strokeWidth="1" className="text-primary opacity-50" />
+                  <circle cx="64" cy="64" r="30" fill="currentColor" className="text-primary opacity-80" />
+                  <circle cx="64" cy="20" r="4" fill="currentColor" className="text-secondary animate-pulse" />
+                  <circle cx="104" cy="64" r="4" fill="currentColor" className="text-secondary animate-pulse" style={{ animationDelay: '0.3s' }} />
+                  <circle cx="64" cy="108" r="4" fill="currentColor" className="text-secondary animate-pulse" style={{ animationDelay: '0.6s' }} />
+                  <circle cx="24" cy="64" r="4" fill="currentColor" className="text-secondary animate-pulse" style={{ animationDelay: '0.9s' }} />
+                  <circle cx="92" cy="36" r="3" fill="currentColor" className="text-accent animate-pulse" style={{ animationDelay: '0.2s' }} />
+                  <circle cx="92" cy="92" r="3" fill="currentColor" className="text-accent animate-pulse" style={{ animationDelay: '0.5s' }} />
+                  <circle cx="36" cy="92" r="3" fill="currentColor" className="text-accent animate-pulse" style={{ animationDelay: '0.8s' }} />
+                  <circle cx="36" cy="36" r="3" fill="currentColor" className="text-accent animate-pulse" style={{ animationDelay: '1.1s' }} />
+                </svg>
+              </div>
+            </div>
+
+            <h1 className="text-5xl sm:text-6xl lg:text-6xl font-headline font-bold text-foreground mb-6 tracking-tight">
+              Willkommen bei{' '}
+              <span className="text-primary text-glow-primary">StarLink</span>
+              <br />
+              <span className="text-secondary text-glow-secondary">Investment Hub</span>
+            </h1>
+
+            <p className="text-xl sm:text-2xl text-muted-foreground mb-8 max-w-3xl mx-auto lg:mx-0 font-body">
+              Das digitale Tor zu Investitionen in die Weltraumwirtschaft. Entdecken Sie die Zukunft der globalen Konnektivität durch Satelliten-Infrastruktur.
+            </p>
+
+            <div className="flex flex-col sm:flex-row items-center lg:items-start justify-center lg:justify-start gap-4 mb-12">
+              <button
+                onClick={onExploreClick}
+                className="group px-8 py-4 bg-primary text-primary-foreground rounded-md text-lg font-cta font-bold hover:bg-accent hover:shadow-glow-primary transition-smooth flex items-center space-x-2"
+              >
+                <span>Jetzt erkunden</span>
+                <Icon name="ArrowRightIcon" size={20} className="group-hover:translate-x-1 transition-transform" />
+              </button>
+              <button className="px-8 py-4 border-2 border-primary text-primary rounded-md text-lg font-cta font-bold hover:bg-primary hover:text-primary-foreground transition-smooth">
+                Mehr erfahren
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-card/50 backdrop-blur-sm border border-border rounded-lg p-4 hover:border-primary transition-smooth">
+                <Icon name="GlobeAltIcon" size={32} className="text-primary mx-auto mb-2" />
+                <h3 className="text-xl font-headline font-bold text-foreground mb-1">145+</h3>
+                <p className="text-sm text-muted-foreground font-body">Länder abgedeckt</p>
+              </div>
+              <div className="bg-card/50 backdrop-blur-sm border border-border rounded-lg p-4 hover:border-primary transition-smooth">
+                <Icon name="RocketLaunchIcon" size={32} className="text-secondary mx-auto mb-2" />
+                <h3 className="text-xl font-headline font-bold text-foreground mb-1">5.000+</h3>
+                <p className="text-sm text-muted-foreground font-body">Aktive Satelliten</p>
+              </div>
+              <div className="bg-card/50 backdrop-blur-sm border border-border rounded-lg p-4 hover:border-primary transition-smooth">
+                <Icon name="ChartBarIcon" size={32} className="text-success mx-auto mb-2" />
+                <h3 className="text-xl font-headline font-bold text-foreground mb-1">€42Mrd</h3>
+                <p className="text-sm text-muted-foreground font-body">Marktpotenzial 2030</p>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <h1 className="text-5xl sm:text-6xl lg:text-7xl font-headline font-bold text-foreground mb-6 tracking-tight">
-          Willkommen bei{' '}
-          <span className="text-primary text-glow-primary">StarLink</span>
-          <br />
-          <span className="text-secondary text-glow-secondary">Investment Hub</span>
-        </h1>
-
-        <p className="text-xl sm:text-2xl text-muted-foreground mb-8 max-w-3xl mx-auto font-body">
-          Das digitale Tor zu Investitionen in die Weltraumwirtschaft. Entdecken Sie die Zukunft der globalen Konnektivität durch Satelliten-Infrastruktur.
-        </p>
-
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
-          <button
-            onClick={onExploreClick}
-            className="group px-8 py-4 bg-primary text-primary-foreground rounded-md text-lg font-cta font-bold hover:bg-accent hover:shadow-glow-primary transition-smooth flex items-center space-x-2"
-          >
-            <span>Jetzt erkunden</span>
-            <Icon name="ArrowRightIcon" size={20} className="group-hover:translate-x-1 transition-transform" />
-          </button>
-          <button className="px-8 py-4 border-2 border-primary text-primary rounded-md text-lg font-cta font-bold hover:bg-primary hover:text-primary-foreground transition-smooth">
-            Mehr erfahren
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 max-w-4xl mx-auto">
-          <div className="bg-card/50 backdrop-blur-sm border border-border rounded-lg p-6 hover:border-primary transition-smooth">
-            <Icon name="GlobeAltIcon" size={40} className="text-primary mx-auto mb-4" />
-            <h3 className="text-2xl font-headline font-bold text-foreground mb-2">145+</h3>
-            <p className="text-muted-foreground font-body">Länder abgedeckt</p>
-          </div>
-          <div className="bg-card/50 backdrop-blur-sm border border-border rounded-lg p-6 hover:border-primary transition-smooth">
-            <Icon name="RocketLaunchIcon" size={40} className="text-secondary mx-auto mb-4" />
-            <h3 className="text-2xl font-headline font-bold text-foreground mb-2">5.000+</h3>
-            <p className="text-muted-foreground font-body">Aktive Satelliten</p>
-          </div>
-          <div className="bg-card/50 backdrop-blur-sm border border-border rounded-lg p-6 hover:border-primary transition-smooth">
-            <Icon name="ChartBarIcon" size={40} className="text-success mx-auto mb-4" />
-            <h3 className="text-2xl font-headline font-bold text-foreground mb-2">€42Mrd</h3>
-            <p className="text-muted-foreground font-body">Marktpotenzial 2030</p>
+          {/* Right visual - Starlink Antenna */}
+          <div className="hidden lg:block h-[600px]">
+            <StarlinkAntenna />
           </div>
         </div>
       </div>

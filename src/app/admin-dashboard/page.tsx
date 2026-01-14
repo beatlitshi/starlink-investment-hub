@@ -337,11 +337,24 @@ export default function AdminDashboard() {
   };
 
   const handleAddMoney = async () => {
-    if (!depositForm.userId || !depositForm.amount) return;
+    if (!depositForm.userId || !depositForm.amount) {
+      alert('Please select a user and enter an amount');
+      return;
+    }
+    
     const user = users.find(u => u.id === depositForm.userId);
-    if (!user) return;
+    if (!user) {
+      alert('User not found');
+      return;
+    }
+    
     const amount = parseFloat(depositForm.amount);
-    const newBalance = user.accountBalance + amount;
+    if (isNaN(amount) || amount <= 0) {
+      alert('Please enter a valid amount');
+      return;
+    }
+    
+    const newBalance = (user.accountBalance || 0) + amount;
     
     // Update user balance in DB via admin API
     try {
@@ -363,43 +376,54 @@ export default function AdminDashboard() {
     }
 
     // Add transaction to DB
-    const { data: tx, error: txError } = await supabase
-      .from('transactions')
-      .insert({
-        user_id: user.id,
-        user_name: user.name,
-        type: 'deposit',
-        amount,
-        status: 'approved',
-        timestamp: new Date().toISOString(),
-        notes: depositForm.notes || 'Manual deposit by admin',
-      })
-      .select()
-      .single();
-    if (txError) {
-      console.error('Error adding transaction:', txError);
-      return;
+    try {
+      const { data: tx, error: txError } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: user.id,
+          user_name: user.name,
+          type: 'deposit',
+          amount: amount,
+          status: 'completed',
+          timestamp: new Date().toISOString(),
+          notes: depositForm.notes || 'Manual deposit by admin',
+        })
+        .select()
+        .single();
+      
+      if (txError) {
+        console.error('Error adding transaction:', txError);
+        alert('Transaction recorded but failed to log');
+        return;
+      }
+
+      // Update local state with new balance
+      setUsers(users.map(u =>
+        u.id === user.id
+          ? { ...u, accountBalance: newBalance }
+          : u
+      ));
+
+      // Add to transactions list
+      setTransactions([{
+        id: tx.id,
+        userId: tx.user_id,
+        userName: tx.user_name,
+        type: tx.type as any,
+        amount: tx.amount,
+        status: tx.status as any,
+        timestamp: tx.timestamp,
+        notes: tx.notes,
+      }, ...transactions]);
+
+      // Clear form and close modal
+      setDepositForm({ userId: '', amount: '', notes: '' });
+      setShowDepositModal(false);
+      alert(`Successfully added €${amount.toFixed(2)} to ${user.name}'s account. New balance: €${newBalance.toFixed(2)}`);
+    } catch (e) {
+      console.error('Error in transaction:', e);
+      alert('Transaction failed, please try again');
     }
-    
-    // Update local state
-    setTransactions([{
-      id: tx.id,
-      userId: tx.user_id,
-      userName: tx.user_name,
-      type: tx.type,
-      amount: tx.amount,
-      status: tx.status,
-      timestamp: tx.timestamp,
-      notes: tx.notes,
-    }, ...transactions]);
-    setUsers(users.map(u =>
-      u.id === user.id
-        ? { ...u, accountBalance: newBalance }
-        : u
-    ));
-    setDepositForm({ userId: '', amount: '', notes: '' });
-    setShowDepositModal(false);
-    alert('Balance updated successfully');
   };
 
   const handleManualDeposit = () => {

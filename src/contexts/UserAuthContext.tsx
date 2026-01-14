@@ -42,7 +42,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing session
+    // Check for existing session and persist it
     const checkUser = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -81,6 +81,9 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               createdAt: session.user.created_at,
             });
           }
+        } else {
+          // No session, user is logged out
+          setUser(null);
         }
         setIsLoading(false);
       } catch (error) {
@@ -91,43 +94,45 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     checkUser();
 
-    // Listen for auth changes
+    // Listen for auth changes and keep session alive
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        // Get user profile from database
-        const { data: profile, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('auth_id', session.user.id)
-          .single();
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        // User signed in or token refreshed
+        if (session?.user) {
+          const { data: profile } = await supabase
+            .from('users')
+            .select('*')
+            .eq('auth_id', session.user.id)
+            .single();
 
-        if (profile) {
-          setUser({
-            id: profile.id,
-            authId: session.user.id,
-            email: profile.email,
-            firstName: profile.first_name,
-            lastName: profile.last_name,
-            phoneNumber: profile.phone_number,
-            balance: profile.balance || 0,
-            investments: profile.investments || [],
-            createdAt: profile.created_at,
-          });
-        } else {
-          const { firstName, lastName, phoneNumber } = session.user.user_metadata || {};
-          setUser({
-            id: session.user.id,
-            authId: session.user.id,
-            email: session.user.email || '',
-            firstName: firstName || '',
-            lastName: lastName || '',
-            phoneNumber: phoneNumber || '',
-            balance: 0,
-            investments: [],
-            createdAt: session.user.created_at,
-          });
+          if (profile) {
+            setUser({
+              id: profile.id,
+              authId: session.user.id,
+              email: profile.email,
+              firstName: profile.first_name,
+              lastName: profile.last_name,
+              phoneNumber: profile.phone_number,
+              balance: profile.balance || 0,
+              investments: profile.investments || [],
+              createdAt: profile.created_at,
+            });
+          } else {
+            const { firstName, lastName, phoneNumber } = session.user.user_metadata || {};
+            setUser({
+              id: session.user.id,
+              authId: session.user.id,
+              email: session.user.email || '',
+              firstName: firstName || '',
+              lastName: lastName || '',
+              phoneNumber: phoneNumber || '',
+              balance: 0,
+              investments: [],
+              createdAt: session.user.created_at,
+            });
+          }
         }
-      } else {
+      } else if (event === 'SIGNED_OUT') {
         setUser(null);
       }
       setIsLoading(false);
