@@ -44,47 +44,6 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const checkUser = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        // Get user profile from database
-        const { data: profile, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('auth_id', session.user.id)
-          .single();
-
-        if (profile) {
-          setUser({
-            id: profile.id,
-            email: profile.email,
-            firstName: profile.first_name,
-            lastName: profile.last_name,
-            phoneNumber: profile.phone_number,
-            balance: profile.balance || 0,
-            investments: profile.investments || [],
-            createdAt: profile.created_at,
-          });
-        } else {
-          // Fallback to session metadata if profile not found
-          const { firstName, lastName, phoneNumber } = session.user.user_metadata || {};
-          setUser({
-            id: session.user.id,
-            email: session.user.email || '',
-            firstName: firstName || '',
-            lastName: lastName || '',
-            phoneNumber: phoneNumber || '',
-            balance: 0,
-            investments: [],
-            createdAt: session.user.created_at,
-          });
-        }
-      }
-      setIsLoading(false);
-    };
-
-    checkUser();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (session?.user) {
           // Get user profile from database
           const { data: profile, error } = await supabase
@@ -105,6 +64,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               createdAt: profile.created_at,
             });
           } else {
+            // Fallback to session metadata if profile not found
             const { firstName, lastName, phoneNumber } = session.user.user_metadata || {};
             setUser({
               id: session.user.id,
@@ -117,13 +77,57 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               createdAt: session.user.created_at,
             });
           }
-        } else {
-          setUser(null);
         }
         setIsLoading(false);
-      });
+      } catch (error) {
+        console.error('Error checking user session:', error);
+        setIsLoading(false);
+      }
+    };
 
-      return () => subscription.unsubscribe();
+    checkUser();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        // Get user profile from database
+        const { data: profile, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('auth_id', session.user.id)
+          .single();
+
+        if (profile) {
+          setUser({
+            id: profile.id,
+            email: profile.email,
+            firstName: profile.first_name,
+            lastName: profile.last_name,
+            phoneNumber: profile.phone_number,
+            balance: profile.balance || 0,
+            investments: profile.investments || [],
+            createdAt: profile.created_at,
+          });
+        } else {
+          const { firstName, lastName, phoneNumber } = session.user.user_metadata || {};
+          setUser({
+            id: session.user.id,
+            email: session.user.email || '',
+            firstName: firstName || '',
+            lastName: lastName || '',
+            phoneNumber: phoneNumber || '',
+            balance: 0,
+            investments: [],
+            createdAt: session.user.created_at,
+          });
+        }
+      } else {
+        setUser(null);
+      }
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const register = async (data: RegisterData): Promise<{ success: boolean; error?: string }> => {

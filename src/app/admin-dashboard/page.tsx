@@ -129,7 +129,6 @@ export default function AdminDashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   const [withdrawalRequests, setWithdrawalRequests] = useState<WithdrawalRequest[]>([]);
-  ]);
 
   const [depositForm, setDepositForm] = useState({ userId: '', amount: '', notes: '' });
   const [showDepositModal, setShowDepositModal] = useState(false);
