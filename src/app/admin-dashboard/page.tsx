@@ -73,31 +73,29 @@ export default function AdminDashboard() {
 
   const [users, setUsers] = useState<User[]>([]);
 
-  // Load actual registered users from localStorage on client-side
+  // Save users to localStorage when they change
   useEffect(() => {
-    const loadUsers = () => {
-      const storedUsers = JSON.parse(localStorage.getItem('users') || '[]');
-      return storedUsers.map((user: any) => ({
-        id: user.id,
-        name: `${user.firstName} ${user.lastName}`,
-        email: user.email,
-        status: 'approved' as const, // Assume approved for now
-        joinDate: user.createdAt ? new Date(user.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-        dashboardAccess: true,
-        accountBalance: 0, // Mock
-        cryptoHoldings: 0, // Mock
-      }));
-    };
-    setUsers(loadUsers());
-  }, []);
+    if (users.length > 0) {
+      // Convert back to stored format
+      const storedUsers = users.map(user => {
+        const [firstName, ...lastNameParts] = user.name.split(' ');
+        const lastName = lastNameParts.join(' ');
+        return {
+          id: user.id,
+          firstName,
+          lastName,
+          email: user.email,
+          phoneNumber: '', // Not stored in admin format
+          createdAt: user.joinDate + 'T00:00:00.000Z'
+        };
+      });
+      localStorage.setItem('users', JSON.stringify(storedUsers));
+    }
+  }, [users]);
 
-  const [transactions, setTransactions] = useState<Transaction[]>([
-    { id: '1', userId: '2', userName: 'Jane Smith', type: 'deposit', amount: 25000, status: 'approved', timestamp: '2026-01-08 10:30', notes: 'Initial deposit' },
-    { id: '2', userId: '2', userName: 'Jane Smith', type: 'crypto_bonus', amount: 400, status: 'approved', timestamp: '2026-01-09 14:20', notes: '8% crypto bonus on Starlink stocks' },
-  ]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
 
-  const [withdrawalRequests, setWithdrawalRequests] = useState<WithdrawalRequest[]>([
-    { id: '1', userId: '2', userName: 'Jane Smith', amount: 5000, status: 'pending', requestDate: '2026-01-12 09:15' },
+  const [withdrawalRequests, setWithdrawalRequests] = useState<WithdrawalRequest[]>([]);
   ]);
 
   const [depositForm, setDepositForm] = useState({ userId: '', amount: '', notes: '' });
@@ -960,11 +958,19 @@ export default function AdminDashboard() {
                   <div key={user.id} className="p-4 bg-muted/20 rounded-lg border border-border">
                     <h4 className="text-lg font-cta font-bold text-foreground mb-2">{user.name}</h4>
                     <div className="space-y-2">
-                      <div className="flex justify-between">
+                      <div className="flex justify-between items-center">
                         <span className="text-sm text-muted-foreground">Account Balance:</span>
-                        <span className="text-sm font-bold text-primary">
-                          {user.accountBalance.toLocaleString('de-DE', { minimumFractionDigits: 2 })} €
-                        </span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={user.accountBalance}
+                          onChange={(e) => {
+                            const newBalance = parseFloat(e.target.value) || 0;
+                            setUsers(users.map(u => u.id === user.id ? { ...u, accountBalance: newBalance } : u));
+                          }}
+                          className="w-24 text-sm font-bold text-primary bg-background border border-border rounded px-2 py-1"
+                        />
+                        <span className="text-sm ml-1">€</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-sm text-muted-foreground">Crypto Holdings:</span>
