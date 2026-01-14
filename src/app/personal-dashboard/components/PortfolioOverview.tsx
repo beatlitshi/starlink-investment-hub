@@ -6,6 +6,7 @@ interface PortfolioData {
   dayChange: number;
   dayChangePercentage: number;
   cryptoBonus?: number;
+  cashBalance?: number;
 }
 
 interface PortfolioOverviewProps {
@@ -17,7 +18,13 @@ export default function PortfolioOverview({ data }: PortfolioOverviewProps) {
     <div className="bg-card rounded-lg p-6 border border-border glow-primary">
       <h2 className="text-xl font-headline font-bold text-foreground mb-6">Portfolio Übersicht</h2>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="space-y-2">
+          <p className="text-sm font-mono text-muted-foreground">Verfügbare Liquidität</p>
+          <p className="text-3xl font-headline font-bold text-success">{(data.cashBalance || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</p>
+          <p className="text-xs text-muted-foreground">Bargeld zum Investieren</p>
+        </div>
+
         <div className="space-y-2">
           <p className="text-sm font-mono text-muted-foreground">Gesamtwert</p>
           <p className="text-3xl font-headline font-bold text-primary">{data.totalValue.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</p>

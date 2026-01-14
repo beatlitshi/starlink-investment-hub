@@ -17,6 +17,7 @@ import AdvancedPortfolioAnalytics from './AdvancedPortfolioAnalytics';
 import StockTradingPanel from './StockTradingPanel';
 import Icon from '@/components/ui/AppIcon';
 import { useUserAuth } from '@/contexts/UserAuthContext';
+import { supabase } from '@/lib/supabase';
 
 interface Investment {
   id: string;
@@ -85,6 +86,32 @@ export default function PersonalDashboardInteractive() {
     
     // Refresh balance from database
     refreshBalance();
+
+    // Subscribe to real-time balance changes
+    if (user?.id) {
+      const subscription = supabase
+        .channel(`user-${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'users',
+            filter: `id=eq.${user.id}`
+          },
+          (payload: any) => {
+            // When balance is updated by admin, refresh the data
+            if (payload.new.balance !== undefined) {
+              refreshBalance();
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        subscription.unsubscribe();
+      };
+    }
 
     setAlerts([
     {
