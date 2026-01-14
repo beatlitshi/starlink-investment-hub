@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 
 // Deploy trigger: Session persistence fixes for INITIAL_SESSION event handling
@@ -261,7 +261,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const refreshBalance = async () => {
+  const refreshBalance = useCallback(async () => {
     if (!user) return;
     try {
       const { data: profile, error } = await supabase
@@ -282,7 +282,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch (e) {
       console.error('Error refreshing balance:', e);
     }
-  };
+  }, [user]);
 
   const logout = async () => {
     await supabase.auth.signOut();
