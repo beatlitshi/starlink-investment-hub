@@ -12,7 +12,7 @@ interface HeaderProps {
 
 const Header = ({ className = '' }: HeaderProps) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { isAuthenticated, user, logout } = useUserAuth();
+  const { isAuthenticated, user, logout, isLoading } = useUserAuth() as any;
   const router = useRouter();
 
   const navigationItems = [
@@ -72,7 +72,9 @@ const Header = ({ className = '' }: HeaderProps) => {
         </nav>
 
         <div className="hidden lg:flex items-center space-x-4">
-          {isAuthenticated ? (
+          {isLoading ? (
+            <span className="text-sm text-muted-foreground">Loading...</span>
+          ) : isAuthenticated ? (
             <>
               <span className="text-sm text-muted-foreground">
                 Welcome, {user?.firstName}
@@ -132,7 +134,9 @@ const Header = ({ className = '' }: HeaderProps) => {
               </Link>
             ))}
             <div className="pt-4 space-y-2 border-t border-border">
-              {isAuthenticated ? (
+              {isLoading ? (
+                <span className="block px-4 py-2 text-sm text-muted-foreground">Loading...</span>
+              ) : isAuthenticated ? (
                 <>
                   <span className="block px-4 py-2 text-sm text-muted-foreground">
                     Welcome, {user?.firstName}

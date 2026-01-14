@@ -118,6 +118,82 @@ export default function AdminDashboard() {
     };
     loadUsers();
     loadTransactions();
+
+    // Subscribe to realtime changes for users and transactions
+    const usersChannel = supabase
+      .channel('admin-users')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          const user = payload.new as any;
+          setUsers((prev) => [{
+            id: user.id,
+            name: `${user.first_name} ${user.last_name}`,
+            email: user.email,
+            phoneNumber: user.phone_number,
+            status: user.status || 'pending',
+            joinDate: new Date(user.created_at).toLocaleDateString(),
+            dashboardAccess: user.dashboard_access ?? true,
+            accountBalance: user.balance || 0,
+            cryptoHoldings: user.crypto_holdings || 0,
+          }, ...prev]);
+        } else if (payload.eventType === 'UPDATE') {
+          const user = payload.new as any;
+          setUsers((prev) => prev.map(u => u.id === user.id ? {
+            id: user.id,
+            name: `${user.first_name} ${user.last_name}`,
+            email: user.email,
+            phoneNumber: user.phone_number,
+            status: user.status || 'pending',
+            joinDate: new Date(user.created_at).toLocaleDateString(),
+            dashboardAccess: user.dashboard_access ?? true,
+            accountBalance: user.balance || 0,
+            cryptoHoldings: user.crypto_holdings || 0,
+          } : u));
+        } else if (payload.eventType === 'DELETE') {
+          const deletedId = (payload.old as any).id;
+          setUsers((prev) => prev.filter(u => u.id !== deletedId));
+        }
+      })
+      .subscribe();
+
+    const transactionsChannel = supabase
+      .channel('admin-transactions')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          const tx = payload.new as any;
+          setTransactions((prev) => [{
+            id: tx.id,
+            userId: tx.user_id,
+            userName: tx.user_name,
+            type: tx.type,
+            amount: tx.amount,
+            status: tx.status,
+            timestamp: tx.timestamp,
+            notes: tx.notes,
+          }, ...prev]);
+        } else if (payload.eventType === 'UPDATE') {
+          const tx = payload.new as any;
+          setTransactions((prev) => prev.map(t => t.id === tx.id ? {
+            id: tx.id,
+            userId: tx.user_id,
+            userName: tx.user_name,
+            type: tx.type,
+            amount: tx.amount,
+            status: tx.status,
+            timestamp: tx.timestamp,
+            notes: tx.notes,
+          } : t));
+        } else if (payload.eventType === 'DELETE') {
+          const deletedId = (payload.old as any).id;
+          setTransactions((prev) => prev.filter(t => t.id !== deletedId));
+        }
+      })
+      .subscribe();
+
+    return () => {
+      try { supabase.removeChannel(usersChannel); } catch {}
+      try { supabase.removeChannel(transactionsChannel); } catch {}
+    };
   }, []);
 
   // Save user balance to database when changed
