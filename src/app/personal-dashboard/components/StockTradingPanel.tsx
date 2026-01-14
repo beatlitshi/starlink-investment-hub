@@ -36,57 +36,43 @@ export default function StockTradingPanel() {
       return;
     }
 
-    // Check if user already owns this stock
-    const existingInvestments = user.investments || [];
-    const existingIndex = existingInvestments.findIndex((inv: any) => inv.symbol === stock.symbol);
-
-    let updatedInvestments;
-    if (existingIndex >= 0) {
-      // Update existing investment
-      const existing = existingInvestments[existingIndex];
-      const totalShares = existing.shares + shares;
-      const totalInvested = existing.invested + cost;
-      updatedInvestments = [...existingInvestments];
-      updatedInvestments[existingIndex] = {
-        ...existing,
-        shares: totalShares,
-        invested: totalInvested,
-        currentValue: stock.price,
-        returnAmount: (stock.price * totalShares) - totalInvested,
-        returnPercentage: ((stock.price * totalShares) / totalInvested - 1) * 100,
-      };
-    } else {
-      // Add new investment
-      updatedInvestments = [
-        ...existingInvestments,
-        {
-          id: Date.now().toString(),
-          name: stock.name,
-          symbol: stock.symbol,
-          image: '/assets/images/stock-icon.png',
-          alt: stock.name,
-          currentValue: stock.price,
-          invested: cost,
-          shares: shares,
-          returnAmount: 0,
-          returnPercentage: 0,
-          dayChange: 0,
-          dayChangePercentage: 0,
-          purchasePrice: stock.price,
+    try {
+      // Call the API endpoint to process the purchase
+      const response = await fetch('/api/user/buy-stock', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      ];
+        body: JSON.stringify({
+          stockSymbol: stock.symbol,
+          shares: shares,
+          cost: cost,
+          stockData: {
+            name: stock.name,
+            price: stock.price,
+          },
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(`Error: ${data.error}`);
+        return;
+      }
+
+      // Update local state with new balance and investments
+      await refreshBalance();
+
+      alert(`Successfully purchased ${shares.toFixed(4)} shares of ${stock.name}`);
+      setBuyAmount('');
+      setBuyShares('');
+      setSelectedStock(null);
+      setSelectedTab('portfolio');
+    } catch (error) {
+      console.error('Error buying stock:', error);
+      alert('Failed to process purchase');
     }
-
-    // Update balance and investments in database
-    await updateBalance(user.balance - cost);
-    await updateInvestments(updatedInvestments);
-    await refreshBalance();
-
-    alert(`Successfully purchased ${shares.toFixed(4)} shares of ${stock.name}`);
-    setBuyAmount('');
-    setBuyShares('');
-    setSelectedStock(null);
-    setSelectedTab('portfolio');
   };
 
   const calculatePortfolioValue = () => {

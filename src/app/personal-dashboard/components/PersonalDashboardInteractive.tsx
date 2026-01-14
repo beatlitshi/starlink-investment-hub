@@ -519,6 +519,7 @@ export default function PersonalDashboardInteractive() {
         {[
           { id: 'overview', label: 'Übersicht', icon: 'HomeIcon' },
           { id: 'investments', label: 'Investitionen', icon: 'CurrencyDollarIcon' },
+          { id: 'trading', label: 'Trading', icon: 'ArrowPathIcon', badge: 'NEU' },
           { id: 'ai', label: 'KI-Berater', icon: 'SparklesIcon', badge: 'NEU' },
           { id: 'social', label: 'Social Trading', icon: 'UserGroupIcon', badge: 'NEU' },
           { id: 'advanced', label: 'Erweiterte Analysen', icon: 'ChartBarIcon', badge: 'PRO' },
