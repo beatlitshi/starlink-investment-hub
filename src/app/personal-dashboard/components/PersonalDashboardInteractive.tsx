@@ -150,6 +150,11 @@ export default function PersonalDashboardInteractive() {
 
   }
 
+  const investments: Investment[] = [
+    // Initial investments are empty - users start with 0 balance
+    // Investments can be added later via admin panel or user deposits
+  ];
+
   const portfolioData = {
     totalValue: investments.reduce((sum, inv) => sum + (inv.currentValue * inv.shares), 0),
     totalInvestment: investments.reduce((sum, inv) => sum + inv.invested, 0),
@@ -159,11 +164,6 @@ export default function PersonalDashboardInteractive() {
     dayChangePercentage: investments.length > 0 ? (investments.reduce((sum, inv) => sum + inv.dayChange, 0) / investments.reduce((sum, inv) => sum + (inv.currentValue * inv.shares), 0)) * 100 : 0,
     cryptoBonus: investments.filter(inv => inv.isCrypto).reduce((sum, inv) => sum + (inv.cryptoBonus || 0), 0)
   };
-
-  const investments: Investment[] = [
-    // Initial investments are empty - users start with 0 balance
-    // Investments can be added later via admin panel or user deposits
-  ];
 
 
   const performanceData = [
