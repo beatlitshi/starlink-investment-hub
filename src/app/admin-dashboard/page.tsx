@@ -317,7 +317,7 @@ export default function AdminDashboard() {
       alert('User has no auth ID');
       return;
     }
-    if (!confirm('Manually confirm this user\\'s email?')) return;
+    if (!confirm('Manually confirm this user\'s email?')) return;
     try {
       const res = await fetch('/api/admin/confirm-user', {
         method: 'POST',
