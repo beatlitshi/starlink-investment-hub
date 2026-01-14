@@ -76,14 +76,16 @@ export default function AdminDashboard() {
   // Load users and transactions from Supabase
   useEffect(() => {
     const loadUsers = async () => {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*');
-      if (error) {
-        console.error('Error loading users:', error);
-      } else if (data) {
-        const formattedUsers = data.map(user => ({
+      try {
+        const res = await fetch('/api/admin/users');
+        const json = await res.json();
+        if (!json.success) {
+          console.error('Error loading users:', json.error);
+          return;
+        }
+        const formattedUsers = json.data.map((user: any) => ({
           id: user.id,
+          authId: user.auth_id,
           name: `${user.first_name} ${user.last_name}`,
           email: user.email,
           phoneNumber: user.phone_number,
@@ -94,17 +96,19 @@ export default function AdminDashboard() {
           cryptoHoldings: user.crypto_holdings || 0,
         }));
         setUsers(formattedUsers);
+      } catch (e) {
+        console.error('Error loading users:', e);
       }
     };
     const loadTransactions = async () => {
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('*')
-        .order('timestamp', { ascending: false });
-      if (error) {
-        console.error('Error loading transactions:', error);
-      } else if (data) {
-        setTransactions(data.map(tx => ({
+      try {
+        const res = await fetch('/api/admin/transactions');
+        const json = await res.json();
+        if (!json.success) {
+          console.error('Error loading transactions:', json.error);
+          return;
+        }
+        setTransactions(json.data.map((tx: any) => ({
           id: tx.id,
           userId: tx.user_id,
           userName: tx.user_name,
@@ -114,6 +118,8 @@ export default function AdminDashboard() {
           timestamp: tx.timestamp,
           notes: tx.notes,
         })));
+      } catch (e) {
+        console.error('Error loading transactions:', e);
       }
     };
     loadUsers();
@@ -269,8 +275,41 @@ export default function AdminDashboard() {
     if (action === 'approve') updates = { status: 'approved', dashboard_access: true };
     if (action === 'reject') updates = { status: 'rejected', dashboard_access: false };
     if (action === 'toggleDashboard') updates = { dashboard_access: !user.dashboardAccess };
-    await supabase.from('users').update(updates).eq('id', userId);
+    // Use admin API to update user securely
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: userId, updates }),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        console.error('Error updating user:', json.error);
+      }
+    } catch (e) {
+      console.error('Error updating user:', e);
+    }
     setUsers(users.map(u => u.id === userId ? { ...u, ...updates } : u));
+  };
+
+  const handleChangePassword = async (authId: string) => {
+    const newPwd = window.prompt('Enter new password for this user:');
+    if (!newPwd) return;
+    try {
+      const res = await fetch('/api/admin/update-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ authId, newPassword: newPwd }),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        alert(`Failed to update password: ${json.error}`);
+      } else {
+        alert('Password updated successfully');
+      }
+    } catch (e: any) {
+      alert(`Failed to update password: ${e.message}`);
+    }
   };
 
   const handleAddMoney = async () => {
@@ -687,6 +726,7 @@ export default function AdminDashboard() {
                       <th className="py-2 px-3 text-left">Status</th>
                       <th className="py-2 px-3 text-left">Join Date</th>
                       <th className="py-2 px-3 text-left">Balance (€)</th>
+                      <th className="py-2 px-3 text-left">Password</th>
                       <th className="py-2 px-3 text-left">Actions</th>
                     </tr>
                   </thead>
@@ -706,6 +746,12 @@ export default function AdminDashboard() {
                         </td>
                         <td className="py-2 px-3">{user.joinDate}</td>
                         <td className="py-2 px-3">{user.accountBalance.toLocaleString('de-DE', { minimumFractionDigits: 2 })}</td>
+                        <td className="py-2 px-3">
+                          <button
+                            onClick={() => handleChangePassword((user as any).authId || '')}
+                            className="px-3 py-1 bg-muted text-foreground rounded hover:bg-muted/80"
+                          >Change</button>
+                        </td>
                         <td className="py-2 px-3 space-x-2">
                           {user.status === 'pending' && (
                             <>
