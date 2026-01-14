@@ -151,13 +151,13 @@ export default function PersonalDashboardInteractive() {
   }
 
   const portfolioData = {
-    totalValue: 287543.75,
-    totalInvestment: 250000.00,
-    totalReturn: 37543.75,
-    returnPercentage: 15.02,
-    dayChange: 2847.50,
-    dayChangePercentage: 1.00,
-    cryptoBonus: 8000.00
+    totalValue: investments.reduce((sum, inv) => sum + (inv.currentValue * inv.shares), 0),
+    totalInvestment: investments.reduce((sum, inv) => sum + inv.invested, 0),
+    totalReturn: investments.reduce((sum, inv) => sum + inv.returnAmount, 0),
+    returnPercentage: investments.length > 0 ? (investments.reduce((sum, inv) => sum + inv.returnAmount, 0) / investments.reduce((sum, inv) => sum + inv.invested, 0)) * 100 : 0,
+    dayChange: investments.reduce((sum, inv) => sum + inv.dayChange, 0),
+    dayChangePercentage: investments.length > 0 ? (investments.reduce((sum, inv) => sum + inv.dayChange, 0) / investments.reduce((sum, inv) => sum + (inv.currentValue * inv.shares), 0)) * 100 : 0,
+    cryptoBonus: investments.filter(inv => inv.isCrypto).reduce((sum, inv) => sum + (inv.cryptoBonus || 0), 0)
   };
 
   const investments: Investment[] = [
