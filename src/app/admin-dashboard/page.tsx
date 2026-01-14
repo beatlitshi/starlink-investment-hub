@@ -67,16 +67,26 @@ export default function AdminDashboard() {
     updateStockPrice 
   } = useStockPrices({
     symbols: ['STLK', 'TECH', 'SPACE', 'IBM', 'AAPL'],
-    autoRefresh: autoSyncEnabled,
+    autoRefresh: false,
     refreshInterval: syncInterval,
   });
 
-  // Mock data
-  const [users, setUsers] = useState<User[]>([
-    { id: '1', name: 'John Doe', email: 'john@example.com', status: 'pending', joinDate: '2026-01-10', dashboardAccess: false, accountBalance: 0, cryptoHoldings: 0 },
-    { id: '2', name: 'Jane Smith', email: 'jane@example.com', status: 'approved', joinDate: '2026-01-08', dashboardAccess: true, accountBalance: 25000, cryptoHoldings: 5000 },
-    { id: '3', name: 'Bob Wilson', email: 'bob@example.com', status: 'pending', joinDate: '2026-01-12', dashboardAccess: false, accountBalance: 0, cryptoHoldings: 0 },
-  ]);
+  // Load actual registered users from localStorage
+  const loadUsers = () => {
+    const storedUsers = JSON.parse(localStorage.getItem('users') || '[]');
+    return storedUsers.map((user: any) => ({
+      id: user.id,
+      name: `${user.firstName} ${user.lastName}`,
+      email: user.email,
+      status: 'approved' as const, // Assume approved for now
+      joinDate: user.createdAt ? new Date(user.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      dashboardAccess: true,
+      accountBalance: 0, // Mock
+      cryptoHoldings: 0, // Mock
+    }));
+  };
+
+  const [users, setUsers] = useState<User[]>(loadUsers());
 
   const [transactions, setTransactions] = useState<Transaction[]>([
     { id: '1', userId: '2', userName: 'Jane Smith', type: 'deposit', amount: 25000, status: 'approved', timestamp: '2026-01-08 10:30', notes: 'Initial deposit' },

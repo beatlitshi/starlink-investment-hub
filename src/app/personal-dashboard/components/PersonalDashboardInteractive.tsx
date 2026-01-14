@@ -497,35 +497,35 @@ export default function PersonalDashboardInteractive() {
   // }, [investments]);
 
   // Add portfolio milestone monitoring
-  useEffect(() => {
-    const checkMilestones = () => {
-      const totalValue = investments.reduce((sum, inv) => sum + (inv.currentValue * inv.shares), 0);
-      const milestones = [50000, 100000, 250000, 500000, 1000000];
+  // useEffect(() => {
+  //   const checkMilestones = () => {
+  //     const totalValue = investments.reduce((sum, inv) => sum + (inv.currentValue * inv.shares), 0);
+  //     const milestones = [50000, 100000, 250000, 500000, 1000000];
       
-      milestones.forEach(milestone => {
-        if (totalValue >= milestone && totalValue < milestone * 1.05) {
-          const startValue = 25000; // Mock starting value
-          const totalGain = ((totalValue - startValue) / startValue) * 100;
-          const monthsSinceStart = 12; // Mock duration
+  //     milestones.forEach(milestone => {
+  //       if (totalValue >= milestone && totalValue < milestone * 1.05) {
+  //         const startValue = 25000; // Mock starting value
+  //         const totalGain = ((totalValue - startValue) / startValue) * 100;
+  //         const monthsSinceStart = 12; // Mock duration
           
-          sendMilestoneEmail({
-            milestoneType: `$${(milestone / 1000).toFixed(0)}K Portfolio Value`,
-            currentValue: totalValue,
-            targetValue: milestone,
-            totalGain: totalGain,
-            startValue: startValue,
-            timeToAchieve: `${monthsSinceStart} months`,
-            avgMonthlyGain: totalGain / monthsSinceStart,
-            nextMilestone: `$${(milestones[milestones.indexOf(milestone) + 1] / 1000).toFixed(0)}K`,
-            nextTargetValue: milestones[milestones.indexOf(milestone) + 1] || milestone * 2
-          });
-        }
-      });
-    };
+  //         sendMilestoneEmail({
+  //           milestoneType: `$${(milestone / 1000).toFixed(0)}K Portfolio Value`,
+  //           currentValue: totalValue,
+  //           targetValue: milestone,
+  //           totalGain: totalGain,
+  //           startValue: startValue,
+  //           timeToAchieve: `${monthsSinceStart} months`,
+  //           avgMonthlyGain: totalGain / monthsSinceStart,
+  //           nextMilestone: `$${(milestones[milestones.indexOf(milestone) + 1] / 1000).toFixed(0)}K`,
+  //           nextTargetValue: milestones[milestones.indexOf(milestone) + 1] || milestone * 2
+  //         });
+  //       }
+  //     });
+  //   };
 
-    // Check milestones on mount and when portfolio changes
-    checkMilestones();
-  }, [investments]);
+  //   // Check milestones on mount and when portfolio changes
+  //   checkMilestones();
+  // }, [investments]);
 
   return (
     <div className="space-y-8">
