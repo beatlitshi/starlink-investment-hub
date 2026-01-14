@@ -168,9 +168,9 @@ export default function PersonalDashboardInteractive() {
       currentAmount: 20000,
       deadline: '31.12.2026',
       category: 'Kurzfristig'
-    }]
-    );
-  }, []);
+    }
+    ]);
+  }, [user?.authId, refreshBalance]);
 
   if (!isHydrated) {
     return (
