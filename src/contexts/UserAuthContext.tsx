@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 
 // Deploy trigger: Session persistence fixes for INITIAL_SESSION event handling
@@ -115,9 +115,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   useEffect(() => {
-    // Check for existing session on app load
-    let isInitializing = true;
-    
+    // Check for existing session on app load - initialize only once
     const initializeAuth = async () => {
       try {
         console.log('Initializing auth...');
@@ -125,10 +123,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         
         if (sessionError) {
           console.error('Session error:', sessionError);
-          if (isInitializing) {
-            setIsLoading(false);
-            isInitializing = false;
-          }
+          setIsLoading(false);
           return;
         }
 
@@ -136,57 +131,44 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           console.log('Session found, loading user profile...');
           const userData = await loadUserProfile(session.user.id, session.user);
           console.log('User loaded:', userData?.email);
-          if (isInitializing) {
-            setUser(userData);
-            setIsLoading(false);
-            isInitializing = false;
-          }
+          setUser(userData);
         } else {
           console.log('No session found');
-          if (isInitializing) {
-            setUser(null);
-            setIsLoading(false);
-            isInitializing = false;
-          }
+          setUser(null);
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
-        if (isInitializing) {
-          setUser(null);
-          setIsLoading(false);
-          isInitializing = false;
-        }
+        setUser(null);
+      } finally {
+        setIsLoading(false);
       }
     };
 
     initializeAuth();
 
-    // Listen for auth changes (skip INITIAL_SESSION since we handle it in initializeAuth)
+    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       try {
         console.log('Auth state changed:', event);
 
-        // Skip INITIAL_SESSION since it's handled by initializeAuth
-        if (event === 'INITIAL_SESSION') {
-          console.log('Skipping INITIAL_SESSION - handled by initializeAuth');
-          return;
-        }
-
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        if (event === 'SIGNED_IN') {
           if (session?.user) {
             console.log('Loading user for event:', event);
             const userData = await loadUserProfile(session.user.id, session.user);
             setUser(userData);
-            setIsLoading(false);
           }
         } else if (event === 'SIGNED_OUT') {
           console.log('User signed out');
           setUser(null);
-          setIsLoading(false);
+        } else if (event === 'TOKEN_REFRESHED') {
+          if (session?.user) {
+            console.log('Token refreshed, updating user');
+            const userData = await loadUserProfile(session.user.id, session.user);
+            setUser(userData);
+          }
         }
       } catch (error) {
         console.error('Error in auth state change handler:', error);
-        setIsLoading(false);
       }
     });
 
