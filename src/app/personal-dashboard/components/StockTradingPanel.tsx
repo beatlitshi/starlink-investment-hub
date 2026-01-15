@@ -47,11 +47,22 @@ export default function StockTradingPanel() {
     }
 
     try {
-      // Call the API endpoint to process the purchase
+      // Get auth token from Supabase
+      const { supabase } = await import('@/lib/supabase');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      if (!token) {
+        alert('Authentication required. Please log in again.');
+        return;
+      }
+
+      // Call the API endpoint to process the purchase with auth header
       const response = await fetch('/api/user/buy-stock', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           stockSymbol: stock.symbol,
