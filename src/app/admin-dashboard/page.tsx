@@ -353,39 +353,40 @@ export default function AdminDashboard() {
       alert('Please enter a valid amount');
       return;
     }
-    
-    const newBalance = (user.accountBalance || 0) + amount;
-    
-    console.log('Adding money to user:', user.id, 'New balance:', newBalance);
-    
-    // Update user balance in DB directly via supabase
+
     try {
-      const { error } = await supabase
-        .from('users')
-        .update({ balance: newBalance })
-        .eq('id', user.id);
-      
-      if (error) {
-        console.error('Error updating balance:', error);
-        alert('Failed to update balance: ' + error.message);
+      const response = await fetch('/api/admin/add-money', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: depositForm.userId,
+          amount: amount
+        })
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        alert('Error: ' + result.error);
         return;
       }
-      
-      console.log('Balance updated successfully');
-      
-      // Update local state
+
+      // Update local state with new balance
       setUsers(users.map(u => 
-        u.id === user.id ? { ...u, accountBalance: newBalance } : u
+        u.id === depositForm.userId 
+          ? { ...u, accountBalance: result.newBalance } 
+          : u
       ));
-      
+
       // Reset form
       setDepositForm({ userId: '', amount: '', notes: '' });
       setShowDepositModal(false);
-      alert(`Added €${amount} to ${user.name}. New balance: €${newBalance}`);
       
-    } catch (e) {
-      console.error('Error adding money:', e);
-      alert('Failed to add money: ' + (e as any).message);
+      alert(`✓ Added €${amount} to ${user.name}\nNew balance: €${result.newBalance}`);
+      
+    } catch (error) {
+      console.error('Error adding money:', error);
+      alert('Failed to add money: ' + (error as any).message);
     }
   };
 
