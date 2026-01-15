@@ -144,24 +144,16 @@ export default function PersonalDashboardInteractive() {
     setIsHydrated(true);
   }, []);
 
-  // Refresh balance when view changes or when returning to dashboard
+  // Refresh balance only when view changes (not on every render)
   useEffect(() => {
-    if (user) {
+    if (user && selectedView === 'overview') {
+      // Only refresh when coming to overview tab
       refreshBalance();
     }
-  }, [selectedView]);
+  }, [selectedView, user, refreshBalance]);
 
-  // Refresh balance when tab becomes visible again
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden && user) {
-        refreshBalance();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [user, refreshBalance]);
+  // Do NOT refresh on tab visibility - it causes flicker
+  // Just let the balance stay stable from initial load
 
   // Wait for auth to load before showing content
   if (authLoading || !isHydrated) {

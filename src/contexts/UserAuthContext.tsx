@@ -43,6 +43,9 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const processingRef = useRef(false);
+  const lastBalanceRefreshRef = useRef<number>(0);
+  const refreshDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const sessionCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Helper function to load user profile from database without aggressive fallbacks
   const loadUserProfile = async (authId: string, sessionUser: any): Promise<User | null> => {
@@ -95,40 +98,41 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const initializeAuth = async () => {
       try {
-        console.log('Initializing auth...');
+        console.log('[Auth] Initializing auth session...');
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (!isMounted) return;
 
         if (sessionError) {
-          console.error('Session error:', sessionError);
+          console.error('[Auth] Session error:', sessionError);
           setUser(null);
           setIsLoading(false);
           return;
         }
 
         if (session?.user) {
-          console.log('Session found for:', session.user.email);
+          console.log('[Auth] Session found for:', session.user.email);
           const userData = await loadUserProfile(session.user.id, session.user);
           if (isMounted) {
             if (userData) {
-              console.log('✓ User profile loaded:', userData.email);
+              console.log('[Auth] User profile loaded:', userData.email);
               setUser(userData);
+              lastBalanceRefreshRef.current = Date.now();
             } else {
-              console.log('✗ User profile not found in database, keeping user null');
+              console.log('[Auth] User profile not found in database');
               setUser(null);
             }
             setIsLoading(false);
           }
         } else {
           if (isMounted) {
-            console.log('No active session');
+            console.log('[Auth] No active session');
             setUser(null);
             setIsLoading(false);
           }
         }
       } catch (error) {
-        console.error('Error initializing auth:', error);
+        console.error('[Auth] Initialization error:', error);
         if (isMounted) {
           setUser(null);
           setIsLoading(false);
@@ -139,13 +143,33 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // Start initialization
     initializeAuth();
 
-    // Safety timeout: force loading to false after 8 seconds (avoid premature zero balances)
+    // Safety timeout: force loading to false after 10 seconds
     timeoutId = setTimeout(() => {
       if (isMounted) {
-        console.log('Auth initialization timeout - setting isLoading to false');
+        console.log('[Auth] Initialization timeout');
         setIsLoading(false);
       }
-    }, 8000);
+    }, 10000);
+
+    // Periodically check session is still valid (every 2 minutes)
+    sessionCheckIntervalRef.current = setInterval(async () => {
+      if (!isMounted) return;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session && user) {
+          console.log('[Auth] Session expired, logging out');
+          setUser(null);
+        } else if (session && !user) {
+          console.log('[Auth] Session exists but user state lost, restoring...');
+          const userData = await loadUserProfile(session.user.id, session.user);
+          if (userData && isMounted) {
+            setUser(userData);
+          }
+        }
+      } catch (error) {
+        console.error('[Auth] Session check error:', error);
+      }
+    }, 120000); // 2 minutes
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -213,6 +237,9 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return () => {
       isMounted = false;
       clearTimeout(timeoutId);
+      if (sessionCheckIntervalRef.current) {
+        clearInterval(sessionCheckIntervalRef.current);
+      }
       subscription?.unsubscribe();
     };
   }, []);
@@ -323,25 +350,47 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const refreshBalance = useCallback(async () => {
     if (!user) return;
-    try {
-      const { data: profile, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('auth_id', user.authId)
-        .single();
-      
-      if (error) {
-        console.error('Error refreshing balance:', error);
-      } else if (profile) {
-        setUser({
-          ...user,
-          balance: profile.balance || 0,
-          investments: profile.investments || [],
-        });
-      }
-    } catch (e) {
-      console.error('Error refreshing balance:', e);
+    
+    // Debounce: only refresh if at least 3 seconds have passed since last refresh
+    const now = Date.now();
+    if (now - lastBalanceRefreshRef.current < 3000) {
+      console.log('[Balance] Refresh debounced');
+      return;
     }
+
+    // Clear any pending refresh
+    if (refreshDebounceRef.current) {
+      clearTimeout(refreshDebounceRef.current);
+    }
+
+    // Schedule refresh after 500ms to batch multiple calls
+    refreshDebounceRef.current = setTimeout(async () => {
+      try {
+        console.log('[Balance] Fetching fresh balance...');
+        const { data: profile, error } = await supabase
+          .from('users')
+          .select('balance, investments')
+          .eq('id', user.id)
+          .single();
+        
+        if (error) {
+          console.error('[Balance] Error:', error);
+          return;
+        }
+
+        if (profile && profile.balance !== user.balance) {
+          console.log('[Balance] Updated to:', profile.balance);
+          setUser(prevUser => prevUser ? {
+            ...prevUser,
+            balance: profile.balance || 0,
+            investments: profile.investments || [],
+          } : null);
+        }
+        lastBalanceRefreshRef.current = Date.now();
+      } catch (e) {
+        console.error('[Balance] Exception:', e);
+      }
+    }, 500);
   }, [user]);
 
   const logout = async () => {

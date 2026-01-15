@@ -39,9 +39,10 @@ const BASE_PRICES: Record<string, number> = {
 export class StockPriceService {
   private static instance: StockPriceService;
   private cache: Map<string, { data: StockQuote; timestamp: number }> = new Map();
-  private readonly CACHE_DURATION = 60000; // 1 minute cache (changed from random to gradual)
+  private readonly CACHE_DURATION = 60000; // 1 minute cache
   private stockControls: Map<string, StockControl> = new Map();
   private lastControlsFetch: number = 0;
+  private lastPriceCache: Map<string, number> = new Map(); // Cache last calculated price
 
   private constructor() {
     this.loadStockControls();
@@ -81,13 +82,16 @@ export class StockPriceService {
   }
 
   /**
-   * Calculate gradual price change based on admin control
+   * Calculate gradual price change based on admin control (stable, repeatable)
    */
   private calculateGradualChange(symbol: string, basePrice: number): number {
     const control = this.stockControls.get(symbol);
     if (!control) {
-      // No control - use small random variation (±0.5%)
-      return basePrice * (1 + (Math.random() - 0.5) * 0.01);
+      // No control - use very small stable variation (±0.1%)
+      // Use symbol hash for consistency so same symbol gets consistent price
+      const seed = symbol.charCodeAt(0) + symbol.charCodeAt(symbol.length - 1);
+      const variation = ((seed % 21) - 10) * 0.001; // -0.1% to +0.1%
+      return basePrice * (1 + variation);
     }
 
     const now = Date.now();
@@ -174,13 +178,31 @@ export class StockPriceService {
   }
 
   /**
-   * Get mock data with gradual admin-controlled changes
+   * Get mock data with gradual admin-controlled changes (cached for stability)
    */
   private getMockData(symbol: string): StockQuote {
     const basePrice = BASE_PRICES[symbol] || 100 + Math.random() * 400;
     
     // Calculate price with gradual change based on admin control
     const currentPrice = this.calculateGradualChange(symbol, basePrice);
+    
+    // Cache this price to ensure consistency across renders
+    const lastPrice = this.lastPriceCache.get(symbol);
+    if (lastPrice !== undefined && Math.abs(currentPrice - lastPrice) < 0.01) {
+      // Price unchanged, return with last cached value for stability
+      const change = lastPrice - basePrice;
+      const changePercent = (change / basePrice) * 100;
+      
+      return {
+        symbol,
+        price: lastPrice,
+        change: parseFloat(change.toFixed(2)),
+        changePercent: parseFloat(changePercent.toFixed(4)),
+        lastUpdated: new Date().toISOString(),
+      };
+    }
+
+    this.lastPriceCache.set(symbol, currentPrice);
     const change = currentPrice - basePrice;
     const changePercent = (change / basePrice) * 100;
 
