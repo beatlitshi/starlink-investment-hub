@@ -45,19 +45,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const processingRef = useRef(false);
 
   // Helper function to load user profile from database without aggressive fallbacks
-  const loadUserProfile = async (authId: string, sessionUser: any) => {
-    const fallbackUser = {
-      id: authId,
-      authId: authId,
-      email: sessionUser?.email || '',
-      firstName: sessionUser?.user_metadata?.firstName || '',
-      lastName: sessionUser?.user_metadata?.lastName || '',
-      phoneNumber: sessionUser?.user_metadata?.phoneNumber || '',
-      balance: 0,
-      investments: [],
-      createdAt: sessionUser?.created_at || new Date().toISOString(),
-    };
-
+  const loadUserProfile = async (authId: string, sessionUser: any): Promise<User | null> => {
     try {
       console.log('loadUserProfile: Fetching user with auth_id:', authId);
 
@@ -68,13 +56,15 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         .single();
 
       if (error) {
-        console.log('loadUserProfile: Query error, using fallback -', error.message);
-        return fallbackUser;
+        console.error('loadUserProfile: Query error -', error.message);
+        // Return null on error so UI shows login screen instead of fallback user
+        return null;
       }
 
       if (profile) {
         console.log('loadUserProfile: Profile found:', {
           id: profile.id,
+          email: profile.email,
           balance: profile.balance,
         });
         return {
@@ -90,11 +80,11 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         };
       }
 
-      console.log('loadUserProfile: No profile found, using fallback');
-      return fallbackUser;
+      console.log('loadUserProfile: No profile found - user may not exist yet');
+      return null;
     } catch (error) {
-      console.log('loadUserProfile: Error caught, using fallback -', error instanceof Error ? error.message : String(error));
-      return fallbackUser;
+      console.error('loadUserProfile: Exception -', error instanceof Error ? error.message : String(error));
+      return null;
     }
   };
 
@@ -112,21 +102,27 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         if (sessionError) {
           console.error('Session error:', sessionError);
+          setUser(null);
           setIsLoading(false);
           return;
         }
 
         if (session?.user) {
-          console.log('Session found, loading user profile...');
+          console.log('Session found for:', session.user.email);
           const userData = await loadUserProfile(session.user.id, session.user);
           if (isMounted) {
-            console.log('User loaded:', userData?.email);
-            setUser(userData);
+            if (userData) {
+              console.log('✓ User profile loaded:', userData.email);
+              setUser(userData);
+            } else {
+              console.log('✗ User profile not found in database, keeping user null');
+              setUser(null);
+            }
             setIsLoading(false);
           }
         } else {
           if (isMounted) {
-            console.log('No session found');
+            console.log('No active session');
             setUser(null);
             setIsLoading(false);
           }
@@ -158,26 +154,36 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       try {
         console.log('Auth state changed:', event);
 
-        if (event === 'SIGNED_IN') {
-          // Prevent duplicate SIGNED_IN processing
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+          // Prevent duplicate processing
           if (processingRef.current) {
-            console.log('SIGNED_IN: Already processing, skipping duplicate');
+            console.log(`${event}: Already processing, skipping`);
             return;
           }
           processingRef.current = true;
 
           if (session?.user) {
-            console.log('SIGNED_IN: Loading user profile for', session.user.email);
+            console.log(`${event}: Loading user profile for ${session.user.email}`);
             const userData = await loadUserProfile(session.user.id, session.user);
-            console.log('SIGNED_IN: User profile loaded:', userData?.email);
             if (isMounted) {
-              setUser(userData);
+              if (userData) {
+                console.log(`✓ ${event}: User loaded -`, userData.email);
+                setUser(userData);
+              } else {
+                console.log(`✗ ${event}: User profile not found, keeping null`);
+                setUser(null);
+              }
               setIsLoading(false);
             }
+          } else {
+            console.log(`${event}: No user in session`);
+            setUser(null);
+            setIsLoading(false);
           }
           processingRef.current = false;
         } else if (event === 'SIGNED_OUT') {
           console.log('SIGNED_OUT: Clearing user');
+          processingRef.current = false;
           if (isMounted) {
             setUser(null);
             setIsLoading(false);
@@ -187,13 +193,17 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           if (session?.user) {
             const userData = await loadUserProfile(session.user.id, session.user);
             if (isMounted) {
-              setUser(userData);
-              setIsLoading(false);
+              if (userData) {
+                setUser(userData);
+              } else {
+                setUser(null);
+              }
             }
           }
         }
       } catch (error) {
         console.error('Error in auth state change:', error);
+        processingRef.current = false;
         if (isMounted) {
           setIsLoading(false);
         }
