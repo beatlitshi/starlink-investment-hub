@@ -77,8 +77,64 @@ interface TaxReport {
 export default function PersonalDashboardInteractive() {
   const { user, refreshBalance, isLoading: authLoading } = useUserAuth();
   const [isHydrated, setIsHydrated] = useState(false);
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [goals, setGoals] = useState<Goal[]>([]);
+  
+  const [alerts] = useState<Alert[]>([
+    {
+      id: '1',
+      type: 'price',
+      title: 'Preisalarm: Starlink Aktie',
+      message: 'Starlink Aktie hat Ihr Zielpreis von 150,00 € erreicht',
+      timestamp: '12.01.2026, 14:30',
+      priority: 'high',
+      read: false
+    },
+    {
+      id: '2',
+      type: 'goal',
+      title: 'Ziel erreicht!',
+      message: 'Sie haben Ihr Sparziel "Notfallfonds" zu 100% erreicht',
+      timestamp: '12.01.2026, 10:15',
+      priority: 'medium',
+      read: false
+    },
+    {
+      id: '3',
+      type: 'news',
+      title: 'Marktupdate',
+      message: 'Neue Regulierungen für Satelliten-Internet angekündigt',
+      timestamp: '11.01.2026, 16:45',
+      priority: 'low',
+      read: true
+    }
+  ]);
+  
+  const [goals] = useState<Goal[]>([
+    {
+      id: '1',
+      title: 'Altersvorsorge',
+      targetAmount: 500000,
+      currentAmount: 125000,
+      deadline: '31.12.2045',
+      category: 'Langfristig'
+    },
+    {
+      id: '2',
+      title: 'Immobilienkauf',
+      targetAmount: 100000,
+      currentAmount: 45000,
+      deadline: '31.12.2028',
+      category: 'Mittelfristig'
+    },
+    {
+      id: '3',
+      title: 'Notfallfonds',
+      targetAmount: 20000,
+      currentAmount: 20000,
+      deadline: '31.12.2026',
+      category: 'Kurzfristig'
+    }
+  ]);
+  
   const [selectedView, setSelectedView] = useState<'overview' | 'investments' | 'analytics' | 'goals' | 'tax' | 'ai' | 'social' | 'advanced' | 'trading'>('overview');
 
   useEffect(() => {
@@ -108,65 +164,6 @@ export default function PersonalDashboardInteractive() {
       </div>
     );
   }
-
-  useEffect(() => {
-    setAlerts([
-    {
-      id: '1',
-      type: 'price',
-      title: 'Preisalarm: Starlink Aktie',
-      message: 'Starlink Aktie hat Ihr Zielpreis von 150,00 € erreicht',
-      timestamp: '12.01.2026, 14:30',
-      priority: 'high',
-      read: false
-    },
-    {
-      id: '2',
-      type: 'goal',
-      title: 'Ziel erreicht!',
-      message: 'Sie haben Ihr Sparziel "Notfallfonds" zu 100% erreicht',
-      timestamp: '12.01.2026, 10:15',
-      priority: 'medium',
-      read: false
-    },
-    {
-      id: '3',
-      type: 'news',
-      title: 'Marktupdate',
-      message: 'Neue Regulierungen für Satelliten-Internet angekündigt',
-      timestamp: '11.01.2026, 16:45',
-      priority: 'low',
-      read: true
-    }]
-    );
-
-    setGoals([
-    {
-      id: '1',
-      title: 'Altersvorsorge',
-      targetAmount: 500000,
-      currentAmount: 125000,
-      deadline: '31.12.2045',
-      category: 'Langfristig'
-    },
-    {
-      id: '2',
-      title: 'Immobilienkauf',
-      targetAmount: 100000,
-      currentAmount: 45000,
-      deadline: '31.12.2028',
-      category: 'Mittelfristig'
-    },
-    {
-      id: '3',
-      title: 'Notfallfonds',
-      targetAmount: 20000,
-      currentAmount: 20000,
-      deadline: '31.12.2026',
-      category: 'Kurzfristig'
-    }
-    ]);
-  }, []);
 
   const investments: Investment[] = user?.investments || [];
 
