@@ -623,49 +623,6 @@ export default function AdminDashboard() {
     setTimeout(() => setDepositSuccess(''), 3000);
   };
 
-  const handleWithdrawalAction = (requestId: string, action: 'approve' | 'reject') => {
-    setWithdrawalRequests(withdrawalRequests.map(req => {
-      if (req.id === requestId) {
-        const updatedRequest = {
-          ...req,
-          status: action === 'approve' ? 'approved' as const : 'rejected' as const,
-          processedAt: new Date().toISOString()
-        };
-
-        // Send withdrawal approval email
-        if (action === 'approve') {
-          const mockUsers = [
-            { username: 'john_investor', name: 'John Smith', email: 'john@example.com' },
-            { username: 'sarah_trader', name: 'Sarah Johnson', email: 'sarah@example.com' },
-            { username: 'mike_crypto', name: 'Mike Chen', email: 'mike@example.com' },
-          ];
-
-          const user = mockUsers.find(u => u.username === req.username);
-          if (user) {
-            emailNotificationService.sendWithdrawalApprovedEmail(
-              user.email,
-              user.name,
-              {
-                amount: req.amount,
-                method: req.method,
-                processingTime: '2-3 business days',
-                requestId: req.id,
-                approvedAt: updatedRequest.processedAt
-              }
-            ).then(result => {
-              if (!result.success) {
-                console.error('Failed to send withdrawal approval email:', result.error);
-              }
-            });
-          }
-        }
-
-        return updatedRequest;
-      }
-      return req;
-    }));
-  };
-
   const handleManualStockUpdate = (stockId: string, newPrice: number) => {
     updateStockPrice(stockId, newPrice);
   };
