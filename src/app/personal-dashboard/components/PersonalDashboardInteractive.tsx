@@ -112,10 +112,7 @@ export default function PersonalDashboardInteractive() {
   useEffect(() => {
     if (!user?.authId) return;
 
-    // Refresh balance from database on mount
-    refreshBalance();
-
-    // Subscribe to real-time balance changes
+    // Subscribe to real-time balance changes only (balance already loaded from context)
     const subscription = supabase
       .channel(`user-balance-${user.authId}`)
       .on(
