@@ -115,12 +115,17 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   useEffect(() => {
-    // Check for existing session on app load - initialize only once
+    // Initialize auth with timeout to prevent hanging
+    let isMounted = true;
+    let timeoutId: NodeJS.Timeout;
+
     const initializeAuth = async () => {
       try {
         console.log('Initializing auth...');
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
+        if (!isMounted) return;
+
         if (sessionError) {
           console.error('Session error:', sessionError);
           setIsLoading(false);
@@ -130,49 +135,74 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (session?.user) {
           console.log('Session found, loading user profile...');
           const userData = await loadUserProfile(session.user.id, session.user);
-          console.log('User loaded:', userData?.email);
-          setUser(userData);
+          if (isMounted) {
+            console.log('User loaded:', userData?.email);
+            setUser(userData);
+            setIsLoading(false);
+          }
         } else {
-          console.log('No session found');
-          setUser(null);
+          if (isMounted) {
+            console.log('No session found');
+            setUser(null);
+            setIsLoading(false);
+          }
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
-        setUser(null);
-      } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setUser(null);
+          setIsLoading(false);
+        }
       }
     };
 
+    // Start initialization
     initializeAuth();
+
+    // Safety timeout: force loading to false after 5 seconds
+    timeoutId = setTimeout(() => {
+      if (isMounted) {
+        console.log('Auth initialization timeout - setting isLoading to false');
+        setIsLoading(false);
+      }
+    }, 5000);
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!isMounted) return;
+
       try {
         console.log('Auth state changed:', event);
 
         if (event === 'SIGNED_IN') {
           if (session?.user) {
-            console.log('Loading user for event:', event);
             const userData = await loadUserProfile(session.user.id, session.user);
-            setUser(userData);
+            if (isMounted) {
+              setUser(userData);
+            }
           }
         } else if (event === 'SIGNED_OUT') {
-          console.log('User signed out');
-          setUser(null);
+          if (isMounted) {
+            setUser(null);
+          }
         } else if (event === 'TOKEN_REFRESHED') {
           if (session?.user) {
-            console.log('Token refreshed, updating user');
             const userData = await loadUserProfile(session.user.id, session.user);
-            setUser(userData);
+            if (isMounted) {
+              setUser(userData);
+            }
           }
         }
       } catch (error) {
-        console.error('Error in auth state change handler:', error);
+        console.error('Error in auth state change:', error);
       }
     });
 
-    return () => subscription?.unsubscribe();
+    return () => {
+      isMounted = false;
+      clearTimeout(timeoutId);
+      subscription?.unsubscribe();
+    };
   }, []);
 
   const register = async (data: RegisterData): Promise<{ success: boolean; error?: string }> => {
