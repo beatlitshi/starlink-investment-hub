@@ -115,6 +115,8 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const initializeAuth = async () => {
       try {
         console.log('[Auth] Initializing session on app load...');
+        console.log('[Auth] Checking localStorage for session...');
+        
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (!isMounted) return;
@@ -128,17 +130,22 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         if (session?.user) {
           console.log('[Auth] ✓ Session found, user:', session.user.email);
-          // Wait for auth state change listener to handle it
-          // Set a timeout to load directly if state change doesn't fire
-          profileLoadTimeout = setTimeout(async () => {
-            if (!isMounted) return;
-            console.log('[Auth] Direct profile load (state change didn\'t fire)');
-            const userData = await loadUserProfile(session.user.id, session.user);
-            if (isMounted && userData) {
+          console.log('[Auth] Session expires at:', new Date(session.expires_at! * 1000).toISOString());
+          
+          // Load profile immediately (don't wait for auth state change)
+          console.log('[Auth] Loading profile immediately...');
+          const userData = await loadUserProfile(session.user.id, session.user);
+          
+          if (isMounted) {
+            if (userData) {
+              console.log('[Auth] ✓ Profile loaded successfully:', userData.email);
               setUser(userData);
-              setIsLoading(false);
+              lastBalanceRefreshRef.current = Date.now();
+            } else {
+              console.warn('[Auth] ✗ Profile not found for session user');
             }
-          }, 1000);
+            setIsLoading(false);
+          }
         } else {
           if (isMounted) {
             console.log('[Auth] No session found on init');
@@ -208,12 +215,13 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
           if (session?.user) {
             console.log(`[Auth] ${event}: Loading profile for ${session.user.email}`);
-            const userData = await loadUserProfile(session.user.id, session.user);
-            if (isMounted) {
-              if (userData) {
-                console.log(`[Auth] ${event}: ✓ User loaded -`, userData.email);
-                setUser(userData);
-                lastBalanceRefreshRef.current = Date.now();
+            try {
+              const userData = await loadUserProfile(session.user.id, session.user);
+              if (isMounted) {
+                if (userData) {
+                  console.log(`[Auth] ${event}: ✓ User loaded -`, userData.email);
+                  setUser(userData);
+                  lastBalanceRefreshRef.current = Date.now();
               } else {
                 console.log(`[Auth] ${event}: ✗ Profile not found`);
                 // Try to create a default user profile if it doesn't exist
@@ -251,6 +259,12 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 }
               }
               setIsLoading(false);
+            }
+            } catch (profileError) {
+              console.error(`[Auth] ${event}: Profile load exception:`, profileError);
+              if (isMounted) {
+                setIsLoading(false);
+              }
             }
           } else {
             console.log(`[Auth] ${event}: No user in session`);
