@@ -356,46 +356,37 @@ export default function AdminDashboard() {
     
     const newBalance = (user.accountBalance || 0) + amount;
     
-    // Update user balance in DB via admin API
+    console.log('Adding money to user:', user.id, 'New balance:', newBalance);
+    
+    // Update user balance in DB directly via supabase
     try {
-      const res = await fetch('/api/admin/users', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: user.id, updates: { balance: newBalance } }),
-      });
-      const json = await res.json();
-      if (!json.success) {
-        console.error('Error updating user balance:', json.error);
-        alert('Failed to update balance');
-        return;
-      }
-    } catch (e) {
-      console.error('Error updating user balance:', e);
-      alert('Failed to update balance');
-      return;
-    }
-
-    // Add transaction to DB
-    try {
-      const { data: tx, error: txError } = await supabase
-        .from('transactions')
-        .insert({
-          user_id: user.id,
-          user_name: user.name,
-          type: 'deposit',
-          amount: amount,
-          status: 'completed',
-          timestamp: new Date().toISOString(),
-          notes: depositForm.notes || 'Manual deposit by admin',
-        })
-        .select()
-        .single();
+      const { error } = await supabase
+        .from('users')
+        .update({ balance: newBalance })
+        .eq('id', user.id);
       
-      if (txError) {
-        console.error('Error adding transaction:', txError);
-        alert('Transaction recorded but failed to log');
+      if (error) {
+        console.error('Error updating balance:', error);
+        alert('Failed to update balance: ' + error.message);
         return;
       }
+      
+      console.log('Balance updated successfully');
+      
+      // Update local state
+      setUsers(users.map(u => 
+        u.id === user.id ? { ...u, accountBalance: newBalance } : u
+      ));
+      
+      // Reset form
+      setDepositForm({ userId: '', amount: '', notes: '' });
+      alert(`Added €${amount} to ${user.name}. New balance: €${newBalance}`);
+      
+    } catch (e) {
+      console.error('Error adding money:', e);
+      alert('Failed to add money: ' + (e as any).message);
+    }
+  };
 
       // Update local state with new balance
       setUsers(users.map(u =>

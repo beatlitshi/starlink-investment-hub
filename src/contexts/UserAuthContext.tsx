@@ -46,6 +46,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Helper function to load user profile from database
   const loadUserProfile = async (authId: string, sessionUser: any) => {
     try {
+      console.log('loadUserProfile: Fetching user with auth_id:', authId);
       const { data: profile, error } = await supabase
         .from('users')
         .select('*')
@@ -53,7 +54,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         .single();
 
       if (error) {
-        console.error('Error loading user profile:', error.message || JSON.stringify(error));
+        console.error('loadUserProfile error:', error.message || JSON.stringify(error));
         // Fall back to session metadata
         const { firstName, lastName, phoneNumber } = sessionUser?.user_metadata || {};
         return {
@@ -70,6 +71,12 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
 
       if (profile) {
+        console.log('loadUserProfile: Profile found:', {
+          id: profile.id,
+          email: profile.email,
+          balance: profile.balance,
+          first_name: profile.first_name,
+        });
         return {
           id: profile.id,
           authId: authId,
@@ -84,6 +91,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
 
       // Profile doesn't exist yet (new user)
+      console.log('loadUserProfile: No profile found, creating fallback');
       const { firstName, lastName, phoneNumber } = sessionUser?.user_metadata || {};
       return {
         id: authId,
