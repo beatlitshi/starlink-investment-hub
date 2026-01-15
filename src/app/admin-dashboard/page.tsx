@@ -380,40 +380,12 @@ export default function AdminDashboard() {
       
       // Reset form
       setDepositForm({ userId: '', amount: '', notes: '' });
+      setShowDepositModal(false);
       alert(`Added €${amount} to ${user.name}. New balance: €${newBalance}`);
       
     } catch (e) {
       console.error('Error adding money:', e);
       alert('Failed to add money: ' + (e as any).message);
-    }
-  };
-
-      // Update local state with new balance
-      setUsers(users.map(u =>
-        u.id === user.id
-          ? { ...u, accountBalance: newBalance }
-          : u
-      ));
-
-      // Add to transactions list
-      setTransactions([{
-        id: tx.id,
-        userId: tx.user_id,
-        userName: tx.user_name,
-        type: tx.type as any,
-        amount: tx.amount,
-        status: tx.status as any,
-        timestamp: tx.timestamp,
-        notes: tx.notes,
-      }, ...transactions]);
-
-      // Clear form and close modal
-      setDepositForm({ userId: '', amount: '', notes: '' });
-      setShowDepositModal(false);
-      alert(`Successfully added €${amount.toFixed(2)} to ${user.name}'s account. New balance: €${newBalance.toFixed(2)}`);
-    } catch (e) {
-      console.error('Error in transaction:', e);
-      alert('Transaction failed, please try again');
     }
   };
 
