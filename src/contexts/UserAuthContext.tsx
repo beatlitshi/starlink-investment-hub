@@ -116,6 +116,8 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   useEffect(() => {
     // Check for existing session on app load
+    let isInitializing = true;
+    
     const initializeAuth = async () => {
       try {
         console.log('Initializing auth...');
@@ -123,7 +125,10 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         
         if (sessionError) {
           console.error('Session error:', sessionError);
-          setIsLoading(false);
+          if (isInitializing) {
+            setIsLoading(false);
+            isInitializing = false;
+          }
           return;
         }
 
@@ -131,38 +136,54 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           console.log('Session found, loading user profile...');
           const userData = await loadUserProfile(session.user.id, session.user);
           console.log('User loaded:', userData?.email);
-          setUser(userData);
+          if (isInitializing) {
+            setUser(userData);
+            setIsLoading(false);
+            isInitializing = false;
+          }
         } else {
           console.log('No session found');
-          setUser(null);
+          if (isInitializing) {
+            setUser(null);
+            setIsLoading(false);
+            isInitializing = false;
+          }
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
-        setUser(null);
-      } finally {
-        setIsLoading(false);
+        if (isInitializing) {
+          setUser(null);
+          setIsLoading(false);
+          isInitializing = false;
+        }
       }
     };
 
     initializeAuth();
 
-    // Listen for auth changes
+    // Listen for auth changes (skip INITIAL_SESSION since we handle it in initializeAuth)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       try {
         console.log('Auth state changed:', event);
 
-        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
+        // Skip INITIAL_SESSION since it's handled by initializeAuth
+        if (event === 'INITIAL_SESSION') {
+          console.log('Skipping INITIAL_SESSION - handled by initializeAuth');
+          return;
+        }
+
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           if (session?.user) {
             console.log('Loading user for event:', event);
             const userData = await loadUserProfile(session.user.id, session.user);
             setUser(userData);
+            setIsLoading(false);
           }
         } else if (event === 'SIGNED_OUT') {
           console.log('User signed out');
           setUser(null);
+          setIsLoading(false);
         }
-
-        setIsLoading(false);
       } catch (error) {
         console.error('Error in auth state change handler:', error);
         setIsLoading(false);
