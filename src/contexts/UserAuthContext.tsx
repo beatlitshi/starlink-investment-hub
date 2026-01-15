@@ -52,12 +52,12 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       console.log('[Auth] loadUserProfile: Fetching user with auth_id:', authId);
 
-      // Create timeout promise
-      const timeoutPromise = new Promise<null>((resolve) => {
+      // Create timeout promise that returns proper structure (10 seconds for slow connections)
+      const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((resolve) => {
         setTimeout(() => {
-          console.error('[Auth] loadUserProfile: Query timeout after 5s');
-          resolve(null);
-        }, 5000);
+          console.error('[Auth] loadUserProfile: Query timeout after 10s');
+          resolve({ data: null, error: { message: 'Query timeout' } });
+        }, 10000);
       });
 
       // Create query promise
@@ -68,14 +68,50 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         .single();
 
       // Race both promises
-      const { data: profile, error } = await Promise.race([
-        queryPromise,
-        timeoutPromise
-      ]) as any;
+      const result = await Promise.race([queryPromise, timeoutPromise]);
+      
+      const { data: profile, error } = result;
 
       if (error) {
         console.error('[Auth] loadUserProfile: Query error -', error.message);
-        // Return null on error
+        
+        // If profile not found, try to create it
+        if (error.message.includes('timeout') || error.code === 'PGRST116') {
+          console.log('[Auth] loadUserProfile: Creating new user profile...');
+          const newUser: User = {
+            id: authId,
+            authId: authId,
+            email: sessionUser.email || '',
+            firstName: sessionUser.user_metadata?.firstName || '',
+            lastName: sessionUser.user_metadata?.lastName || '',
+            phoneNumber: sessionUser.user_metadata?.phoneNumber || '',
+            balance: 0,
+            investments: [],
+            createdAt: new Date().toISOString(),
+          };
+          
+          // Insert user to database
+          const { error: insertError } = await supabase
+            .from('users')
+            .insert({
+              auth_id: authId,
+              email: sessionUser.email,
+              first_name: newUser.firstName,
+              last_name: newUser.lastName,
+              phone_number: newUser.phoneNumber,
+              balance: 0,
+              investments: [],
+            });
+          
+          if (insertError) {
+            console.error('[Auth] Failed to create user profile:', insertError);
+            return null;
+          } else {
+            console.log('[Auth] ✓ User profile auto-created');
+            return newUser;
+          }
+        }
+        
         return null;
       }
 
