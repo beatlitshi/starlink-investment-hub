@@ -10,13 +10,15 @@ export default function StockTradingPanel() {
   const { stocks, isLoading, refreshStocks } = useStockPrices({
     symbols: ['STLK', 'TECH', 'SPACE', 'IBM', 'AAPL'],
     autoRefresh: true,
-    refreshInterval: 60000,
+    refreshInterval: 60000, // Update every 60 seconds (1 minute)
   });
 
   const [selectedStock, setSelectedStock] = useState<string | null>(null);
   const [buyAmount, setBuyAmount] = useState('');
   const [buyShares, setBuyShares] = useState('');
-  const [selectedTab, setSelectedTab] = useState<'buy' | 'portfolio'>('buy');
+  const [sellStock, setSellStock] = useState<string | null>(null);
+  const [sellShares, setSellShares] = useState('');
+  const [selectedTab, setSelectedTab] = useState<'buy' | 'sell' | 'portfolio'>('buy');
   const [portfolioValue, setPortfolioValue] = useState(0);
   const [totalGain, setTotalGain] = useState({ amount: 0, percentage: 0 });
 
@@ -96,6 +98,75 @@ export default function StockTradingPanel() {
     }
   };
 
+  const handleSellStock = async () => {
+    if (!sellStock || !sellShares || !user) return;
+
+    const sharesToSell = parseFloat(sellShares);
+    if (isNaN(sharesToSell) || sharesToSell <= 0) {
+      alert('Please enter a valid number of shares');
+      return;
+    }
+
+    // Find user's investment
+    const investment = user.investments?.find((inv: any) => inv.symbol === sellStock);
+    if (!investment || investment.shares < sharesToSell) {
+      alert('Insufficient shares to sell');
+      return;
+    }
+
+    // Find current stock price
+    const stock = stocks.find(s => s.symbol === sellStock);
+    if (!stock) {
+      alert('Stock not found');
+      return;
+    }
+
+    const saleValue = sharesToSell * stock.price;
+
+    try {
+      // Get auth token
+      const { supabase } = await import('@/lib/supabase');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      if (!token) {
+        alert('Authentication required. Please log in again.');
+        return;
+      }
+
+      // Call sell API endpoint
+      const response = await fetch('/api/user/sell-stock', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          stockSymbol: sellStock,
+          shares: sharesToSell,
+          saleValue: saleValue,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(`Error: ${data.error}`);
+        return;
+      }
+
+      // Refresh balance and investments
+      await refreshBalance();
+
+      alert(`Successfully sold ${sharesToSell.toFixed(4)} shares of ${stock.name} for €${saleValue.toFixed(2)}`);
+      setSellShares('');
+      setSellStock(null);
+      setSelectedTab('portfolio');
+    } catch (error) {
+      console.error('Error selling stock:', error);
+      alert('Failed to process sale');
+    }
+  };
   const calculatePortfolioValue = () => {
     if (!user?.investments) return 0;
     return user.investments.reduce((sum: number, inv: any) => {
@@ -163,6 +234,16 @@ export default function StockTradingPanel() {
           }`}
         >
           Buy Stocks
+        </button>
+        <button
+          onClick={() => setSelectedTab('sell')}
+          className={`px-6 py-3 font-cta font-semibold transition-smooth ${
+            selectedTab === 'sell'
+              ? 'text-destructive border-b-2 border-destructive'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Sell Stocks
         </button>
         <button
           onClick={() => setSelectedTab('portfolio')}
@@ -297,6 +378,157 @@ export default function StockTradingPanel() {
         </div>
       )}
 
+      {/* Sell Stocks Tab */}
+      {selectedTab === 'sell' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* User's Investments */}
+          <div className="space-y-4">
+            <h3 className="text-xl font-headline font-bold text-foreground mb-4">Your Holdings</h3>
+            
+            {user?.investments && user.investments.length > 0 ? (
+              user.investments.map((investment: any) => {
+                const currentStock = stocks.find(s => s.symbol === investment.symbol);
+                const currentPrice = currentStock ? currentStock.price : investment.currentValue;
+                const currentValue = currentPrice * investment.shares;
+                const profitLoss = currentValue - investment.invested;
+                const profitLossPercent = (profitLoss / investment.invested) * 100;
+
+                return (
+                  <div
+                    key={investment.symbol}
+                    onClick={() => {
+                      setSellStock(investment.symbol);
+                      setSellShares(investment.shares.toString());
+                    }}
+                    className={`p-4 bg-card rounded-lg border-2 cursor-pointer transition-smooth ${
+                      sellStock === investment.symbol
+                        ? 'border-destructive shadow-glow-primary'
+                        : 'border-border hover:border-destructive/50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center">
+                          <span className="text-lg font-bold text-primary">{investment.symbol}</span>
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-foreground">{investment.name || investment.symbol}</h4>
+                          <p className="text-sm text-muted-foreground">{investment.shares.toFixed(4)} shares</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-foreground">€{currentValue.toFixed(2)}</p>
+                        <p className={`text-sm ${profitLoss >= 0 ? 'text-success' : 'text-destructive'}`}>
+                          {profitLoss >= 0 ? '+' : ''}€{profitLoss.toFixed(2)} ({profitLossPercent.toFixed(2)}%)
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <span>Current Price: €{currentPrice.toFixed(2)}</span>
+                      <span>Invested: €{investment.invested.toFixed(2)}</span>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <Icon name="InboxIcon" size={48} className="mx-auto mb-3 opacity-50" />
+                <p>No stocks in your portfolio</p>
+                <p className="text-sm mt-2">Buy some stocks first to start selling</p>
+              </div>
+            )}
+          </div>
+
+          {/* Sell Form */}
+          <div className="bg-card p-6 rounded-lg">
+            <h3 className="text-xl font-headline font-bold text-foreground mb-4">Sell Stock</h3>
+            
+            {sellStock ? (
+              <div className="space-y-4">
+                {(() => {
+                  const investment = user?.investments?.find((inv: any) => inv.symbol === sellStock);
+                  const currentStock = stocks.find(s => s.symbol === sellStock);
+                  const currentPrice = currentStock ? currentStock.price : 0;
+                  const sharesToSellNum = parseFloat(sellShares) || 0;
+                  const saleValue = sharesToSellNum * currentPrice;
+
+                  return (
+                    <>
+                      <div className="p-4 bg-primary/10 rounded-lg">
+                        <div className="flex justify-between mb-2">
+                          <span className="text-muted-foreground">Stock:</span>
+                          <span className="font-bold text-foreground">{sellStock}</span>
+                        </div>
+                        <div className="flex justify-between mb-2">
+                          <span className="text-muted-foreground">Available Shares:</span>
+                          <span className="font-bold text-foreground">{investment?.shares.toFixed(4) || '0'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Current Price:</span>
+                          <span className="font-bold text-foreground">€{currentPrice.toFixed(2)}</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-foreground mb-2">
+                          Number of Shares to Sell
+                        </label>
+                        <input
+                          type="number"
+                          step="0.0001"
+                          max={investment?.shares || 0}
+                          value={sellShares}
+                          onChange={(e) => setSellShares(e.target.value)}
+                          className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-destructive"
+                          placeholder="0.0000"
+                        />
+                        <button
+                          onClick={() => setSellShares((investment?.shares || 0).toString())}
+                          className="mt-2 text-sm text-primary hover:underline"
+                        >
+                          Sell All
+                        </button>
+                      </div>
+
+                      {sellShares && sharesToSellNum > 0 && (
+                        <div className="p-4 bg-destructive/10 rounded-lg">
+                          <div className="flex justify-between mb-2">
+                            <span className="text-muted-foreground">Shares to Sell:</span>
+                            <span className="font-bold text-foreground">{sharesToSellNum.toFixed(4)}</span>
+                          </div>
+                          <div className="flex justify-between mb-2">
+                            <span className="text-muted-foreground">Sale Value:</span>
+                            <span className="font-bold text-foreground">€{saleValue.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">New Balance:</span>
+                            <span className="font-bold text-success">
+                              €{((user?.balance || 0) + saleValue).toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      <button
+                        onClick={handleSellStock}
+                        disabled={!sellShares || sharesToSellNum <= 0 || sharesToSellNum > (investment?.shares || 0)}
+                        className="w-full py-3 bg-destructive text-primary-foreground rounded-lg font-cta font-bold hover:bg-destructive/80 transition-smooth disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Sell {sellStock}
+                      </button>
+                    </>
+                  );
+                })()}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <Icon name="ArrowTrendingDownIcon" size={48} className="mx-auto mb-3 opacity-50" />
+                <p>Select a stock from your holdings to sell</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       {/* Portfolio Tab */}
       {selectedTab === 'portfolio' && (
         <div className="bg-card rounded-lg p-6 shadow-depth">
