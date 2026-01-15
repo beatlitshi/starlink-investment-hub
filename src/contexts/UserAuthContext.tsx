@@ -47,25 +47,40 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const refreshDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const sessionCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Helper function to load user profile from database without aggressive fallbacks
+  // Helper function to load user profile from database with timeout
   const loadUserProfile = async (authId: string, sessionUser: any): Promise<User | null> => {
     try {
-      console.log('loadUserProfile: Fetching user with auth_id:', authId);
+      console.log('[Auth] loadUserProfile: Fetching user with auth_id:', authId);
 
-      const { data: profile, error } = await supabase
+      // Create timeout promise
+      const timeoutPromise = new Promise<null>((resolve) => {
+        setTimeout(() => {
+          console.error('[Auth] loadUserProfile: Query timeout after 5s');
+          resolve(null);
+        }, 5000);
+      });
+
+      // Create query promise
+      const queryPromise = supabase
         .from('users')
         .select('*')
         .eq('auth_id', authId)
         .single();
 
+      // Race both promises
+      const { data: profile, error } = await Promise.race([
+        queryPromise,
+        timeoutPromise
+      ]) as any;
+
       if (error) {
-        console.error('loadUserProfile: Query error -', error.message);
-        // Return null on error so UI shows login screen instead of fallback user
+        console.error('[Auth] loadUserProfile: Query error -', error.message);
+        // Return null on error
         return null;
       }
 
       if (profile) {
-        console.log('loadUserProfile: Profile found:', {
+        console.log('[Auth] loadUserProfile: ✓ Profile found:', {
           id: profile.id,
           email: profile.email,
           balance: profile.balance,
@@ -83,56 +98,56 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         };
       }
 
-      console.log('loadUserProfile: No profile found - user may not exist yet');
+      console.log('[Auth] loadUserProfile: ✗ No profile found');
       return null;
     } catch (error) {
-      console.error('loadUserProfile: Exception -', error instanceof Error ? error.message : String(error));
+      console.error('[Auth] loadUserProfile: Exception -', error instanceof Error ? error.message : String(error));
       return null;
     }
   };
 
   useEffect(() => {
-    // Initialize auth with timeout to prevent hanging
+    // Initialize auth
     let isMounted = true;
     let timeoutId: NodeJS.Timeout;
+    let profileLoadTimeout: NodeJS.Timeout;
 
     const initializeAuth = async () => {
       try {
-        console.log('[Auth] Initializing auth session...');
+        console.log('[Auth] Initializing session on app load...');
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (!isMounted) return;
 
         if (sessionError) {
-          console.error('[Auth] Session error:', sessionError);
+          console.error('[Auth] Session error on init:', sessionError);
           setUser(null);
           setIsLoading(false);
           return;
         }
 
         if (session?.user) {
-          console.log('[Auth] Session found for:', session.user.email);
-          const userData = await loadUserProfile(session.user.id, session.user);
-          if (isMounted) {
-            if (userData) {
-              console.log('[Auth] User profile loaded:', userData.email);
+          console.log('[Auth] ✓ Session found, user:', session.user.email);
+          // Wait for auth state change listener to handle it
+          // Set a timeout to load directly if state change doesn't fire
+          profileLoadTimeout = setTimeout(async () => {
+            if (!isMounted) return;
+            console.log('[Auth] Direct profile load (state change didn\'t fire)');
+            const userData = await loadUserProfile(session.user.id, session.user);
+            if (isMounted && userData) {
               setUser(userData);
-              lastBalanceRefreshRef.current = Date.now();
-            } else {
-              console.log('[Auth] User profile not found in database');
-              setUser(null);
+              setIsLoading(false);
             }
-            setIsLoading(false);
-          }
+          }, 1000);
         } else {
           if (isMounted) {
-            console.log('[Auth] No active session');
+            console.log('[Auth] No session found on init');
             setUser(null);
             setIsLoading(false);
           }
         }
       } catch (error) {
-        console.error('[Auth] Initialization error:', error);
+        console.error('[Auth] Init error:', error);
         if (isMounted) {
           setUser(null);
           setIsLoading(false);
@@ -143,13 +158,13 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // Start initialization
     initializeAuth();
 
-    // Safety timeout: force loading to false after 10 seconds
+    // Safety timeout: force loading false after 15 seconds
     timeoutId = setTimeout(() => {
       if (isMounted) {
-        console.log('[Auth] Initialization timeout');
+        console.log('[Auth] Safety timeout reached');
         setIsLoading(false);
       }
-    }, 10000);
+    }, 15000);
 
     // Periodically check session is still valid (every 2 minutes)
     sessionCheckIntervalRef.current = setInterval(async () => {
@@ -176,57 +191,87 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (!isMounted) return;
 
       try {
-        console.log('Auth state changed:', event);
+        console.log('[Auth] State changed:', event);
 
         if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
           // Prevent duplicate processing
           if (processingRef.current) {
-            console.log(`${event}: Already processing, skipping`);
+            console.log(`[Auth] ${event}: Skipping (already processing)`);
             return;
           }
           processingRef.current = true;
 
           if (session?.user) {
-            console.log(`${event}: Loading user profile for ${session.user.email}`);
+            console.log(`[Auth] ${event}: Loading profile for ${session.user.email}`);
             const userData = await loadUserProfile(session.user.id, session.user);
             if (isMounted) {
               if (userData) {
-                console.log(`✓ ${event}: User loaded -`, userData.email);
+                console.log(`[Auth] ${event}: ✓ User loaded -`, userData.email);
                 setUser(userData);
+                lastBalanceRefreshRef.current = Date.now();
               } else {
-                console.log(`✗ ${event}: User profile not found, keeping null`);
-                setUser(null);
+                console.log(`[Auth] ${event}: ✗ Profile not found`);
+                // Try to create a default user profile if it doesn't exist
+                const newUser: User = {
+                  id: session.user.id,
+                  authId: session.user.id,
+                  email: session.user.email || '',
+                  firstName: session.user.user_metadata?.firstName || '',
+                  lastName: session.user.user_metadata?.lastName || '',
+                  phoneNumber: session.user.user_metadata?.phoneNumber || '',
+                  balance: 0,
+                  investments: [],
+                  createdAt: new Date().toISOString(),
+                };
+                
+                // Insert user to database
+                const { error: insertError } = await supabase
+                  .from('users')
+                  .insert({
+                    auth_id: session.user.id,
+                    email: session.user.email,
+                    first_name: newUser.firstName,
+                    last_name: newUser.lastName,
+                    phone_number: newUser.phoneNumber,
+                    balance: 0,
+                    investments: [],
+                  });
+                
+                if (insertError) {
+                  console.error('[Auth] Failed to create user profile:', insertError);
+                  setUser(null);
+                } else {
+                  console.log('[Auth] ✓ User profile created');
+                  setUser(newUser);
+                }
               }
               setIsLoading(false);
             }
           } else {
-            console.log(`${event}: No user in session`);
+            console.log(`[Auth] ${event}: No user in session`);
             setUser(null);
             setIsLoading(false);
           }
           processingRef.current = false;
         } else if (event === 'SIGNED_OUT') {
-          console.log('SIGNED_OUT: Clearing user');
+          console.log('[Auth] SIGNED_OUT: Clearing user');
           processingRef.current = false;
           if (isMounted) {
             setUser(null);
             setIsLoading(false);
           }
         } else if (event === 'TOKEN_REFRESHED') {
-          console.log('TOKEN_REFRESHED: Refreshing user profile');
-          if (session?.user) {
+          console.log('[Auth] TOKEN_REFRESHED');
+          if (session?.user && user) {
+            console.log('[Auth] Refreshing user profile after token refresh');
             const userData = await loadUserProfile(session.user.id, session.user);
-            if (isMounted) {
-              if (userData) {
-                setUser(userData);
-              } else {
-                setUser(null);
-              }
+            if (isMounted && userData) {
+              setUser(userData);
             }
           }
         }
       } catch (error) {
-        console.error('Error in auth state change:', error);
+        console.error('[Auth] State change error:', error);
         processingRef.current = false;
         if (isMounted) {
           setIsLoading(false);
@@ -237,6 +282,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return () => {
       isMounted = false;
       clearTimeout(timeoutId);
+      clearTimeout(profileLoadTimeout);
       if (sessionCheckIntervalRef.current) {
         clearInterval(sessionCheckIntervalRef.current);
       }
