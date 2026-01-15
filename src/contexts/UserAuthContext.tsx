@@ -191,9 +191,14 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (!isMounted) return;
 
       try {
-        console.log('[Auth] State changed:', event);
+        console.log('[Auth] State changed:', event, session ? `user=${session.user?.email}` : 'no-session');
 
         if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+          // Clear any pending profile load timeout
+          if (profileLoadTimeout) {
+            clearTimeout(profileLoadTimeout);
+          }
+
           // Prevent duplicate processing
           if (processingRef.current) {
             console.log(`[Auth] ${event}: Skipping (already processing)`);
@@ -210,7 +215,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 setUser(userData);
                 lastBalanceRefreshRef.current = Date.now();
               } else {
-                console.log(`[Auth] ${event}: ✗ Profile not found`);
+                console.log(`[Auth] ${event}: ✗ Profile not found, creating new user`);
                 // Try to create a default user profile if it doesn't exist
                 const newUser: User = {
                   id: session.user.id,
@@ -264,6 +269,15 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           console.log('[Auth] TOKEN_REFRESHED');
           if (session?.user && user) {
             console.log('[Auth] Refreshing user profile after token refresh');
+            const userData = await loadUserProfile(session.user.id, session.user);
+            if (isMounted && userData) {
+              setUser(userData);
+            }
+          }
+        } else if (event === 'USER_UPDATED') {
+          console.log('[Auth] USER_UPDATED');
+          if (session?.user) {
+            console.log('[Auth] Reloading user profile after update');
             const userData = await loadUserProfile(session.user.id, session.user);
             if (isMounted && userData) {
               setUser(userData);
