@@ -15,6 +15,8 @@ import AIAdvisor from './AIAdvisor';
 import SocialCopyTrading from './SocialCopyTrading';
 import AdvancedPortfolioAnalytics from './AdvancedPortfolioAnalytics';
 import StockTradingPanel from './StockTradingPanel';
+import WithdrawPanel from './WithdrawPanel';
+import CryptoDepositPanel from './CryptoDepositPanel';
 import Icon from '@/components/ui/AppIcon';
 import { useUserAuth } from '@/contexts/UserAuthContext';
 import { supabase } from '@/lib/supabase';
@@ -135,7 +137,7 @@ export default function PersonalDashboardInteractive() {
     }
   ]);
   
-  const [selectedView, setSelectedView] = useState<'overview' | 'investments' | 'analytics' | 'goals' | 'tax' | 'ai' | 'social' | 'advanced' | 'trading'>('overview');
+  const [selectedView, setSelectedView] = useState<'overview' | 'investments' | 'analytics' | 'goals' | 'tax' | 'ai' | 'social' | 'advanced' | 'trading' | 'withdraw' | 'crypto-deposit'>('overview');
 
   useEffect(() => {
     setIsHydrated(true);
@@ -236,59 +238,59 @@ export default function PersonalDashboardInteractive() {
   const quickActions = [
   {
     id: '1',
-    label: 'Investieren',
+    label: 'Buy Stocks',
     icon: 'PlusCircleIcon',
     color: 'primary',
     onClick: () => setSelectedView('trading')
   },
   {
     id: '2',
-    label: 'Auszahlung',
+    label: 'Withdraw',
     icon: 'BanknotesIcon',
     color: 'secondary',
-    onClick: () => alert('Auszahlung anfordern')
+    onClick: () => setSelectedView('withdraw')
   },
   {
     id: '3',
-    label: 'KI-Empfehlungen',
+    label: 'Crypto Deposit',
+    icon: 'CurrencyDollarIcon',
+    color: 'success',
+    onClick: () => setSelectedView('crypto-deposit')
+  },
+  {
+    id: '4',
+    label: 'AI Advisor',
     icon: 'SparklesIcon',
     color: 'primary',
     onClick: () => setSelectedView('ai')
   },
   {
-    id: '4',
+    id: '5',
     label: 'Social Trading',
     icon: 'UserGroupIcon',
     color: 'secondary',
     onClick: () => setSelectedView('social')
   },
   {
-    id: '5',
-    label: 'Erweiterte Analysen',
+    id: '6',
+    label: 'Analytics',
     icon: 'ChartBarIcon',
     color: 'primary',
     onClick: () => setSelectedView('advanced')
   },
   {
-    id: '6',
-    label: 'Portfolio',
-    icon: 'DocumentChartBarIcon',
-    color: 'success',
-    onClick: () => alert('Portfolio-Details')
-  },
-  {
     id: '7',
-    label: 'Berichte',
+    label: 'Tax Reports',
     icon: 'DocumentTextIcon',
     color: 'warning',
     onClick: () => setSelectedView('tax')
   },
   {
     id: '8',
-    label: 'Einstellungen',
+    label: 'Settings',
     icon: 'CogIcon',
     color: 'muted-foreground',
-    onClick: () => alert('Einstellungen')
+    onClick: () => alert('Settings')
   }];
 
 
@@ -626,6 +628,18 @@ export default function PersonalDashboardInteractive() {
           <StockTradingPanel />
         </div>
       )}
-    </div>);
 
+      {selectedView === 'withdraw' && (
+        <div className="space-y-6">
+          <WithdrawPanel />
+        </div>
+      )}
+
+      {selectedView === 'crypto-deposit' && (
+        <div className="space-y-6">
+          <CryptoDepositPanel />
+        </div>
+      )}
+    </div>
+  );
 }

@@ -238,6 +238,15 @@ export default function AdminDashboard() {
 
   const [depositForm, setDepositForm] = useState({ userId: '', amount: '', notes: '' });
   const [showDepositModal, setShowDepositModal] = useState(false);
+  
+  // New features state
+  const [showBonusModal, setShowBonusModal] = useState(false);
+  const [showStockControlModal, setShowStockControlModal] = useState(false);
+  const [showCryptoWalletModal, setShowCryptoWalletModal] = useState(false);
+  const [bonusForm, setBonusForm] = useState({ userId: '' });
+  const [stockControlForm, setStockControlForm] = useState({ symbol: 'STLK', targetChangePercent: 10, durationMinutes: 60 });
+  const [cryptoWalletForm, setCryptoWalletForm] = useState({ userId: '', walletAddress: '', cryptoType: 'BTC' });
+  const [withdrawals, setWithdrawals] = useState<any[]>([]);
 
   const [homepageSections, setHomepageSections] = useState<HomepageSection[]>([
     { id: '1', name: 'Hero Section', enabled: true, order: 1 },
@@ -387,6 +396,166 @@ export default function AdminDashboard() {
     } catch (error) {
       console.error('Error adding money:', error);
       alert('Failed to add money: ' + (error as any).message);
+    }
+  };
+
+  // Send 8% bonus to user
+  const handleSendBonus = async () => {
+    if (!bonusForm.userId) {
+      alert('Please select a user');
+      return;
+    }
+
+    const user = users.find(u => u.id === bonusForm.userId);
+    if (!user) {
+      alert('User not found');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/admin/send-bonus', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: bonusForm.userId })
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        alert('Error: ' + result.error);
+        return;
+      }
+
+      // Update local state
+      setUsers(users.map(u => 
+        u.id === bonusForm.userId 
+          ? { ...u, accountBalance: result.newBalance } 
+          : u
+      ));
+
+      setShowBonusModal(false);
+      setBonusForm({ userId: '' });
+      alert(`✓ Sent 8% bonus (€${result.bonusAmount.toFixed(2)}) to ${user.name}\nNew balance: €${result.newBalance.toFixed(2)}`);
+    } catch (error) {
+      console.error('Error sending bonus:', error);
+      alert('Failed to send bonus: ' + (error as any).message);
+    }
+  };
+
+  // Set stock price target
+  const handleStockControl = async () => {
+    try {
+      const response = await fetch('/api/admin/stock-control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbol: stockControlForm.symbol,
+          targetChangePercent: stockControlForm.targetChangePercent,
+          duration: stockControlForm.durationMinutes
+        })
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        alert('Error: ' + result.error);
+        return;
+      }
+
+      setShowStockControlModal(false);
+      alert(`✓ ${result.message}`);
+      
+      // Refresh stocks
+      refreshStocks();
+    } catch (error) {
+      console.error('Error setting stock control:', error);
+      alert('Failed to set stock control: ' + (error as any).message);
+    }
+  };
+
+  // Assign crypto wallet to user
+  const handleAssignCryptoWallet = async () => {
+    if (!cryptoWalletForm.userId || !cryptoWalletForm.walletAddress) {
+      alert('Please select a user and enter a wallet address');
+      return;
+    }
+
+    const user = users.find(u => u.id === cryptoWalletForm.userId);
+    if (!user) {
+      alert('User not found');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/admin/crypto-wallet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: cryptoWalletForm.userId,
+          walletAddress: cryptoWalletForm.walletAddress,
+          cryptoType: cryptoWalletForm.cryptoType
+        })
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        alert('Error: ' + result.error);
+        return;
+      }
+
+      setShowCryptoWalletModal(false);
+      setCryptoWalletForm({ userId: '', walletAddress: '', cryptoType: 'BTC' });
+      alert(`✓ ${cryptoWalletForm.cryptoType} wallet assigned to ${user.name}`);
+    } catch (error) {
+      console.error('Error assigning wallet:', error);
+      alert('Failed to assign wallet: ' + (error as any).message);
+    }
+  };
+
+  // Load withdrawals
+  useEffect(() => {
+    const loadWithdrawals = async () => {
+      try {
+        const response = await fetch('/api/admin/withdrawals');
+        const result = await response.json();
+        if (result.success) {
+          setWithdrawals(result.withdrawals);
+        }
+      } catch (error) {
+        console.error('Error loading withdrawals:', error);
+      }
+    };
+    loadWithdrawals();
+  }, []);
+
+  // Handle withdrawal approval/rejection
+  const handleWithdrawalAction = async (withdrawalId: string, status: 'approved' | 'rejected') => {
+    try {
+      const response = await fetch('/api/admin/withdrawals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ withdrawalId, status })
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        alert('Error: ' + result.error);
+        return;
+      }
+
+      // Reload withdrawals
+      const refreshResponse = await fetch('/api/admin/withdrawals');
+      const refreshResult = await refreshResponse.json();
+      if (refreshResult.success) {
+        setWithdrawals(refreshResult.withdrawals);
+      }
+
+      alert(`✓ Withdrawal ${status} successfully`);
+    } catch (error) {
+      console.error('Error processing withdrawal:', error);
+      alert('Failed to process withdrawal: ' + (error as any).message);
     }
   };
 
@@ -821,6 +990,27 @@ export default function AdminDashboard() {
 
         {activeTab === 'stocks' && (
           <div className="space-y-6">
+            {/* Stock Control Panel */}
+            <div className="p-6 bg-card rounded-lg shadow-depth border-2 border-primary/20">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-headline font-bold text-foreground">Stock Price Control</h2>
+                <button
+                  onClick={() => setShowStockControlModal(true)}
+                  className="flex items-center space-x-2 px-6 py-3 bg-primary text-primary-foreground rounded-md font-cta font-bold hover:bg-accent hover:shadow-glow-primary transition-smooth"
+                >
+                  <Icon name="ChartBarIcon" size={20} />
+                  <span>Set Price Target</span>
+                </button>
+              </div>
+              
+              <div className="p-4 bg-primary/10 rounded-md border border-primary/20 mb-4">
+                <p className="text-sm text-muted-foreground">
+                  Control stock prices gradually over time. Set a target percentage change (e.g., +10% or -5%) and duration (e.g., 60 minutes). 
+                  The price will change smoothly over time, not randomly every second.
+                </p>
+              </div>
+            </div>
+
             {/* Auto-Sync Control Panel */}
             <div className="p-6 bg-card rounded-lg shadow-depth border-2 border-primary/20">
               <div className="flex items-center justify-between mb-4">
@@ -1082,20 +1272,36 @@ export default function AdminDashboard() {
           <div className="space-y-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-headline font-bold text-foreground">Financial Management</h2>
-              <button
-                onClick={() => setShowDepositModal(true)}
-                className="flex items-center space-x-2 px-6 py-3 bg-primary text-primary-foreground rounded-md font-cta font-bold hover:bg-accent hover:shadow-glow-primary transition-smooth"
-              >
-                <Icon name="PlusCircleIcon" size={20} />
-                <span>Add Money to Client</span>
-              </button>
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setShowDepositModal(true)}
+                  className="flex items-center space-x-2 px-6 py-3 bg-primary text-primary-foreground rounded-md font-cta font-bold hover:bg-accent hover:shadow-glow-primary transition-smooth"
+                >
+                  <Icon name="PlusCircleIcon" size={20} />
+                  <span>Add Money</span>
+                </button>
+                <button
+                  onClick={() => setShowBonusModal(true)}
+                  className="flex items-center space-x-2 px-6 py-3 bg-success/20 text-success rounded-md font-cta font-bold hover:bg-success/30 transition-smooth"
+                >
+                  <Icon name="GiftIcon" size={20} />
+                  <span>8% Bonus</span>
+                </button>
+                <button
+                  onClick={() => setShowCryptoWalletModal(true)}
+                  className="flex items-center space-x-2 px-6 py-3 bg-primary/20 text-primary rounded-md font-cta font-bold hover:bg-primary/30 transition-smooth"
+                >
+                  <Icon name="CurrencyDollarIcon" size={20} />
+                  <span>Crypto Wallet</span>
+                </button>
+              </div>
             </div>
 
             {/* Withdrawal Requests */}
             <div className="bg-card rounded-lg p-6 shadow-depth">
               <h3 className="text-xl font-headline font-bold text-foreground mb-4">Pending Withdrawal Requests</h3>
               <div className="space-y-4">
-                {withdrawalRequests.filter(r => r.status === 'pending').length === 0 ? (
+                {withdrawals.filter(w => w.status === 'pending').length === 0 ? (
                   <div className="text-center py-8">
                     <Icon name="CheckCircleIcon" size={48} className="mx-auto text-success mb-3" />
                     <p className="text-muted-foreground">No pending withdrawal requests</p>
@@ -1280,6 +1486,214 @@ export default function AdminDashboard() {
                     className="flex-1 px-4 py-3 bg-primary text-primary-foreground rounded-md font-bold hover:bg-accent hover:shadow-glow-primary transition-smooth disabled:opacity-50"
                   >
                     Add Money
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 8% Bonus Modal */}
+        {showBonusModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-card rounded-lg p-6 max-w-md w-full shadow-depth">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-headline font-bold text-foreground">Send 8% Bonus</h3>
+                <button onClick={() => setShowBonusModal(false)} className="text-muted-foreground hover:text-foreground">
+                  <Icon name="XMarkIcon" size={24} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-2">Select User</label>
+                  <select
+                    value={bonusForm.userId}
+                    onChange={(e) => setBonusForm({ ...bonusForm, userId: e.target.value })}
+                    className="w-full px-4 py-3 bg-background border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">Choose a user...</option>
+                    {users.filter(u => u.status === 'approved').map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.name} (€{user.accountBalance.toFixed(2)}) - Bonus: €{(user.accountBalance * 0.08).toFixed(2)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="p-4 bg-primary/10 rounded-md border border-primary/20">
+                  <p className="text-sm text-muted-foreground">
+                    The user will receive an 8% bonus based on their current balance
+                  </p>
+                </div>
+
+                <div className="flex space-x-3 pt-4">
+                  <button
+                    onClick={() => setShowBonusModal(false)}
+                    className="flex-1 px-4 py-3 bg-muted text-foreground rounded-md font-semibold hover:bg-muted/80 transition-smooth"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSendBonus}
+                    disabled={!bonusForm.userId}
+                    className="flex-1 px-4 py-3 bg-primary text-primary-foreground rounded-md font-bold hover:bg-accent hover:shadow-glow-primary transition-smooth disabled:opacity-50"
+                  >
+                    Send Bonus
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Stock Control Modal */}
+        {showStockControlModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-card rounded-lg p-6 max-w-md w-full shadow-depth">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-headline font-bold text-foreground">Control Stock Price</h3>
+                <button onClick={() => setShowStockControlModal(false)} className="text-muted-foreground hover:text-foreground">
+                  <Icon name="XMarkIcon" size={24} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-2">Select Stock</label>
+                  <select
+                    value={stockControlForm.symbol}
+                    onChange={(e) => setStockControlForm({ ...stockControlForm, symbol: e.target.value })}
+                    className="w-full px-4 py-3 bg-background border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="STLK">STLK - Starlink</option>
+                    <option value="TECH">TECH - Tech Corp</option>
+                    <option value="SPACE">SPACE - Space Ventures</option>
+                    <option value="IBM">IBM</option>
+                    <option value="AAPL">AAPL - Apple</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-2">Target Change (%)</label>
+                  <input
+                    type="number"
+                    value={stockControlForm.targetChangePercent}
+                    onChange={(e) => setStockControlForm({ ...stockControlForm, targetChangePercent: parseFloat(e.target.value) })}
+                    className="w-full px-4 py-3 bg-background border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="Enter percentage (e.g., 10 for +10%, -5 for -5%)"
+                    step="0.1"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-2">Duration (minutes)</label>
+                  <input
+                    type="number"
+                    value={stockControlForm.durationMinutes}
+                    onChange={(e) => setStockControlForm({ ...stockControlForm, durationMinutes: parseInt(e.target.value) })}
+                    className="w-full px-4 py-3 bg-background border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="How long to reach target"
+                    min="1"
+                    step="1"
+                  />
+                </div>
+
+                <div className="p-4 bg-primary/10 rounded-md border border-primary/20">
+                  <p className="text-sm text-muted-foreground">
+                    Stock will gradually change {stockControlForm.targetChangePercent > 0 ? '+' : ''}{stockControlForm.targetChangePercent}% over {stockControlForm.durationMinutes} minutes
+                  </p>
+                </div>
+
+                <div className="flex space-x-3 pt-4">
+                  <button
+                    onClick={() => setShowStockControlModal(false)}
+                    className="flex-1 px-4 py-3 bg-muted text-foreground rounded-md font-semibold hover:bg-muted/80 transition-smooth"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleStockControl}
+                    className="flex-1 px-4 py-3 bg-primary text-primary-foreground rounded-md font-bold hover:bg-accent hover:shadow-glow-primary transition-smooth"
+                  >
+                    Set Target
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Crypto Wallet Modal */}
+        {showCryptoWalletModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-card rounded-lg p-6 max-w-md w-full shadow-depth">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-headline font-bold text-foreground">Assign Crypto Wallet</h3>
+                <button onClick={() => setShowCryptoWalletModal(false)} className="text-muted-foreground hover:text-foreground">
+                  <Icon name="XMarkIcon" size={24} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-2">Select User</label>
+                  <select
+                    value={cryptoWalletForm.userId}
+                    onChange={(e) => setCryptoWalletForm({ ...cryptoWalletForm, userId: e.target.value })}
+                    className="w-full px-4 py-3 bg-background border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">Choose a user...</option>
+                    {users.filter(u => u.status === 'approved').map((user) => (
+                      <option key={user.id} value={user.id}>{user.name} ({user.email})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-2">Crypto Type</label>
+                  <select
+                    value={cryptoWalletForm.cryptoType}
+                    onChange={(e) => setCryptoWalletForm({ ...cryptoWalletForm, cryptoType: e.target.value })}
+                    className="w-full px-4 py-3 bg-background border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="BTC">Bitcoin (BTC)</option>
+                    <option value="ETH">Ethereum (ETH)</option>
+                    <option value="USDT">Tether (USDT)</option>
+                    <option value="USDC">USD Coin (USDC)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-2">Wallet Address</label>
+                  <input
+                    type="text"
+                    value={cryptoWalletForm.walletAddress}
+                    onChange={(e) => setCryptoWalletForm({ ...cryptoWalletForm, walletAddress: e.target.value })}
+                    className="w-full px-4 py-3 bg-background border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-mono text-sm"
+                    placeholder="Enter wallet address"
+                  />
+                </div>
+
+                <div className="p-4 bg-primary/10 rounded-md border border-primary/20">
+                  <p className="text-sm text-muted-foreground">
+                    This wallet address will appear on the user's deposit page
+                  </p>
+                </div>
+
+                <div className="flex space-x-3 pt-4">
+                  <button
+                    onClick={() => setShowCryptoWalletModal(false)}
+                    className="flex-1 px-4 py-3 bg-muted text-foreground rounded-md font-semibold hover:bg-muted/80 transition-smooth"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleAssignCryptoWallet}
+                    disabled={!cryptoWalletForm.userId || !cryptoWalletForm.walletAddress}
+                    className="flex-1 px-4 py-3 bg-primary text-primary-foreground rounded-md font-bold hover:bg-accent hover:shadow-glow-primary transition-smooth disabled:opacity-50"
+                  >
+                    Assign Wallet
                   </button>
                 </div>
               </div>
