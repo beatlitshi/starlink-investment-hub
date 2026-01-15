@@ -44,7 +44,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [isLoading, setIsLoading] = useState(true);
   const processingRef = useRef(false);
 
-  // Helper function to load user profile from database with timeout
+  // Helper function to load user profile from database without aggressive fallbacks
   const loadUserProfile = async (authId: string, sessionUser: any) => {
     const fallbackUser = {
       id: authId,
@@ -60,19 +60,12 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     try {
       console.log('loadUserProfile: Fetching user with auth_id:', authId);
-      
-      // Create a promise that rejects after 3 seconds
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Query timeout')), 3000)
-      );
 
-      const queryPromise = supabase
+      const { data: profile, error } = await supabase
         .from('users')
         .select('*')
         .eq('auth_id', authId)
         .single();
-
-      const { data: profile, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
 
       if (error) {
         console.log('loadUserProfile: Query error, using fallback -', error.message);
@@ -150,13 +143,13 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // Start initialization
     initializeAuth();
 
-    // Safety timeout: force loading to false after 5 seconds
+    // Safety timeout: force loading to false after 8 seconds (avoid premature zero balances)
     timeoutId = setTimeout(() => {
       if (isMounted) {
         console.log('Auth initialization timeout - setting isLoading to false');
         setIsLoading(false);
       }
-    }, 5000);
+    }, 8000);
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {

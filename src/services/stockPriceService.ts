@@ -41,7 +41,7 @@ export class StockPriceService {
   private cache: Map<string, { data: StockQuote; timestamp: number }> = new Map();
   private readonly CACHE_DURATION = 60000; // 1 minute cache (changed from random to gradual)
   private stockControls: Map<string, StockControl> = new Map();
-  private lastFetchTime: number = Date.now();
+  private lastControlsFetch: number = 0;
 
   private constructor() {
     this.loadStockControls();
@@ -118,6 +118,12 @@ export class StockPriceService {
    * Fetch real-time stock quote from Alpha Vantage API
    */
   async fetchStockQuote(symbol: string): Promise<StockQuote> {
+    // Refresh controls every 30 seconds to catch admin changes
+    if (Date.now() - this.lastControlsFetch > 30000) {
+      await this.loadStockControls();
+      this.lastControlsFetch = Date.now();
+    }
+
     // Check cache first
     const cached = this.cache.get(symbol);
     if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {

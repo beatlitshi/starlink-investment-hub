@@ -85,6 +85,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to update portfolio' }, { status: 500 });
     }
 
+    // Log transaction for history
+    await supabase.from('transactions').insert({
+      user_id: userProfile.id,
+      user_name: `${userProfile.first_name} ${userProfile.last_name}`,
+      type: 'stock_sale',
+      amount: saleValue,
+      status: 'completed',
+      notes: `Sold ${shares.toFixed(4)} shares of ${stockSymbol}`,
+      timestamp: new Date().toISOString(),
+    });
+
     console.log(`✓ User sold ${shares} shares of ${stockSymbol} for €${saleValue}`);
 
     return NextResponse.json({

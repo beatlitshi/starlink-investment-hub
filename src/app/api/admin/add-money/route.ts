@@ -44,6 +44,13 @@ export async function POST(request: NextRequest) {
 
     console.log(`Adding €${numAmount} to user ${userId}. Current: €${currentBalance}, New: €${newBalance}`);
 
+    // Get user info for transaction log
+    const { data: userInfo } = await supabase
+      .from('users')
+      .select('first_name, last_name')
+      .eq('id', userId)
+      .single();
+
     // Update balance in database
     const { error: updateError } = await supabase
       .from('users')
@@ -57,6 +64,17 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Log transaction for history
+    await supabase.from('transactions').insert({
+      user_id: userId,
+      user_name: userInfo ? `${userInfo.first_name} ${userInfo.last_name}` : 'User',
+      type: 'deposit',
+      amount: numAmount,
+      status: 'completed',
+      notes: 'Deposit by admin',
+      timestamp: new Date().toISOString(),
+    });
 
     console.log(`Successfully added €${numAmount} to user ${userId}. New balance: €${newBalance}`);
 

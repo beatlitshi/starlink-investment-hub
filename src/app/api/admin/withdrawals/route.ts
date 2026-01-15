@@ -37,29 +37,61 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Withdrawal ID and status required' }, { status: 400 });
     }
 
+    // First, get the withdrawal details
+    const { data: withdrawal, error: fetchError } = await supabase
+      .from('withdrawals')
+      .select('amount, user_id')
+      .eq('id', withdrawalId)
+      .single();
+
+    if (fetchError || !withdrawal) {
+      console.error('Error fetching withdrawal:', fetchError);
+      return NextResponse.json({ error: 'Withdrawal not found' }, { status: 404 });
+    }
+
     // If approving, deduct from user balance
     if (status === 'approved') {
-      const { data: withdrawal } = await supabase
-        .from('withdrawals')
-        .select('amount, user_id')
-        .eq('id', withdrawalId)
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('balance, id, first_name, last_name')
+        .eq('id', withdrawal.user_id)
         .single();
 
-      if (withdrawal) {
-        const { data: user } = await supabase
-          .from('users')
-          .select('balance')
-          .eq('id', withdrawal.user_id)
-          .single();
-
-        if (user) {
-          const newBalance = (user.balance || 0) - withdrawal.amount;
-          await supabase
-            .from('users')
-            .update({ balance: newBalance })
-            .eq('id', withdrawal.user_id);
-        }
+      if (userError || !user) {
+        console.error('Error fetching user:', userError);
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
       }
+
+      const currentBalance = user.balance || 0;
+      if (currentBalance < withdrawal.amount) {
+        return NextResponse.json({ error: 'Insufficient user balance' }, { status: 400 });
+      }
+
+      const newBalance = currentBalance - withdrawal.amount;
+
+      // Deduct balance
+      const { error: balanceError } = await supabase
+        .from('users')
+        .update({ balance: newBalance })
+        .eq('id', withdrawal.user_id);
+
+      if (balanceError) {
+        console.error('Error updating balance:', balanceError);
+        return NextResponse.json({ error: 'Failed to update balance' }, { status: 500 });
+      }
+
+      // Log transaction for history
+      await supabase.from('transactions').insert({
+        user_id: user.id,
+        user_name: `${user.first_name} ${user.last_name}`,
+        type: 'withdrawal',
+        amount: -withdrawal.amount, // Negative for withdrawals
+        status: 'completed',
+        notes: `Withdrawal approved by admin`,
+        timestamp: new Date().toISOString(),
+      });
+
+      console.log(`✓ Withdrawal approved: €${withdrawal.amount} deducted from user ${user.id}. New balance: €${newBalance}`);
     }
 
     // Update withdrawal status

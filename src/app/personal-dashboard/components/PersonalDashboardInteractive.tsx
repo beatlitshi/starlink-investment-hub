@@ -17,6 +17,7 @@ import AdvancedPortfolioAnalytics from './AdvancedPortfolioAnalytics';
 import StockTradingPanel from './StockTradingPanel';
 import WithdrawPanel from './WithdrawPanel';
 import CryptoDepositPanel from './CryptoDepositPanel';
+import TransactionHistory from './TransactionHistory';
 import Icon from '@/components/ui/AppIcon';
 import { useUserAuth } from '@/contexts/UserAuthContext';
 import { supabase } from '@/lib/supabase';
@@ -137,11 +138,30 @@ export default function PersonalDashboardInteractive() {
     }
   ]);
   
-  const [selectedView, setSelectedView] = useState<'overview' | 'investments' | 'analytics' | 'goals' | 'tax' | 'ai' | 'social' | 'advanced' | 'trading' | 'withdraw' | 'crypto-deposit'>('overview');
+  const [selectedView, setSelectedView] = useState<'overview' | 'investments' | 'analytics' | 'goals' | 'tax' | 'ai' | 'social' | 'advanced' | 'trading' | 'withdraw' | 'crypto-deposit' | 'history'>('overview');
 
   useEffect(() => {
     setIsHydrated(true);
   }, []);
+
+  // Refresh balance when view changes or when returning to dashboard
+  useEffect(() => {
+    if (user) {
+      refreshBalance();
+    }
+  }, [selectedView]);
+
+  // Refresh balance when tab becomes visible again
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && user) {
+        refreshBalance();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [user, refreshBalance]);
 
   // Wait for auth to load before showing content
   if (authLoading || !isHydrated) {
@@ -505,6 +525,9 @@ export default function PersonalDashboardInteractive() {
           { id: 'overview', label: 'Übersicht', icon: 'HomeIcon' },
           { id: 'investments', label: 'Investitionen', icon: 'CurrencyDollarIcon' },
           { id: 'trading', label: 'Trading', icon: 'ArrowPathIcon', badge: 'NEU' },
+          { id: 'history', label: 'Transaction History', icon: 'ClockIcon' },
+          { id: 'withdraw', label: 'Withdraw', icon: 'BanknotesIcon' },
+          { id: 'crypto-deposit', label: 'Crypto Deposit', icon: 'CurrencyDollarIcon', badge: '8%' },
           { id: 'ai', label: 'KI-Berater', icon: 'SparklesIcon', badge: 'NEU' },
           { id: 'social', label: 'Social Trading', icon: 'UserGroupIcon', badge: 'NEU' },
           { id: 'advanced', label: 'Erweiterte Analysen', icon: 'ChartBarIcon', badge: 'PRO' },
@@ -638,6 +661,12 @@ export default function PersonalDashboardInteractive() {
       {selectedView === 'crypto-deposit' && (
         <div className="space-y-6">
           <CryptoDepositPanel />
+        </div>
+      )}
+
+      {selectedView === 'history' && (
+        <div className="space-y-6">
+          <TransactionHistory />
         </div>
       )}
     </div>
