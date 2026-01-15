@@ -51,6 +51,15 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Error creating withdrawal:', error);
+      
+      // Check if it's a missing table error
+      if (error.message.includes('relation') && error.message.includes('does not exist')) {
+        return NextResponse.json({ 
+          error: 'Database table missing. Please run DATABASE_SETUP.sql in Supabase first!',
+          details: 'Go to Supabase → SQL Editor → Run the SQL from DATABASE_SETUP.sql file'
+        }, { status: 500 });
+      }
+      
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 

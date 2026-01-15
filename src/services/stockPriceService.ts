@@ -64,6 +64,12 @@ export class StockPriceService {
         .select('*')
         .eq('is_active', true);
 
+      if (error) {
+        // Table might not exist yet - just log and continue
+        console.log('Stock controls table not available yet:', error.message);
+        return;
+      }
+
       if (!error && data) {
         data.forEach((control: StockControl) => {
           this.stockControls.set(control.symbol, control);
