@@ -176,25 +176,35 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         if (event === 'SIGNED_IN') {
           if (session?.user) {
+            console.log('SIGNED_IN: Loading user profile for', session.user.email);
             const userData = await loadUserProfile(session.user.id, session.user);
+            console.log('SIGNED_IN: User profile loaded:', userData?.email);
             if (isMounted) {
               setUser(userData);
+              setIsLoading(false);
             }
           }
         } else if (event === 'SIGNED_OUT') {
+          console.log('SIGNED_OUT: Clearing user');
           if (isMounted) {
             setUser(null);
+            setIsLoading(false);
           }
         } else if (event === 'TOKEN_REFRESHED') {
+          console.log('TOKEN_REFRESHED: Refreshing user profile');
           if (session?.user) {
             const userData = await loadUserProfile(session.user.id, session.user);
             if (isMounted) {
               setUser(userData);
+              setIsLoading(false);
             }
           }
         }
       } catch (error) {
         console.error('Error in auth state change:', error);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     });
 
@@ -261,15 +271,20 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       });
 
       if (error) {
+        console.error('Login error:', error.message);
         return { success: false, error: error.message };
       }
 
       if (data.user) {
+        console.log('Login successful, user authenticated:', data.user.email);
+        // Wait a moment for the auth state change listener to process
+        await new Promise(resolve => setTimeout(resolve, 500));
         return { success: true };
       }
 
       return { success: false, error: 'Login failed' };
     } catch (error: any) {
+      console.error('Login exception:', error);
       return { success: false, error: error.message || 'Login failed' };
     }
   };
