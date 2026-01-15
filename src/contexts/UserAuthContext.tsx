@@ -42,40 +42,47 @@ const UserAuthContext = createContext<UserAuthContextType | undefined>(undefined
 export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const processingRef = useRef(false);
 
-  // Helper function to load user profile from database
+  // Helper function to load user profile from database with timeout
   const loadUserProfile = async (authId: string, sessionUser: any) => {
+    const fallbackUser = {
+      id: authId,
+      authId: authId,
+      email: sessionUser?.email || '',
+      firstName: sessionUser?.user_metadata?.firstName || '',
+      lastName: sessionUser?.user_metadata?.lastName || '',
+      phoneNumber: sessionUser?.user_metadata?.phoneNumber || '',
+      balance: 0,
+      investments: [],
+      createdAt: sessionUser?.created_at || new Date().toISOString(),
+    };
+
     try {
       console.log('loadUserProfile: Fetching user with auth_id:', authId);
-      const { data: profile, error } = await supabase
+      
+      // Create a promise that rejects after 3 seconds
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Query timeout')), 3000)
+      );
+
+      const queryPromise = supabase
         .from('users')
         .select('*')
         .eq('auth_id', authId)
         .single();
 
+      const { data: profile, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
+
       if (error) {
-        console.error('loadUserProfile error:', error.message || JSON.stringify(error));
-        // Fall back to session metadata
-        const { firstName, lastName, phoneNumber } = sessionUser?.user_metadata || {};
-        return {
-          id: authId,
-          authId: authId,
-          email: sessionUser?.email || '',
-          firstName: firstName || '',
-          lastName: lastName || '',
-          phoneNumber: phoneNumber || '',
-          balance: 0,
-          investments: [],
-          createdAt: sessionUser?.created_at || new Date().toISOString(),
-        };
+        console.log('loadUserProfile: Query error, using fallback -', error.message);
+        return fallbackUser;
       }
 
       if (profile) {
         console.log('loadUserProfile: Profile found:', {
           id: profile.id,
-          email: profile.email,
           balance: profile.balance,
-          first_name: profile.first_name,
         });
         return {
           id: profile.id,
@@ -90,35 +97,11 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         };
       }
 
-      // Profile doesn't exist yet (new user)
-      console.log('loadUserProfile: No profile found, creating fallback');
-      const { firstName, lastName, phoneNumber } = sessionUser?.user_metadata || {};
-      return {
-        id: authId,
-        authId: authId,
-        email: sessionUser?.email || '',
-        firstName: firstName || '',
-        lastName: lastName || '',
-        phoneNumber: phoneNumber || '',
-        balance: 0,
-        investments: [],
-        createdAt: sessionUser?.created_at || new Date().toISOString(),
-      };
+      console.log('loadUserProfile: No profile found, using fallback');
+      return fallbackUser;
     } catch (error) {
-      console.error('Error in loadUserProfile:', error);
-      // Return a fallback user even on error to prevent null states
-      const { firstName, lastName, phoneNumber } = sessionUser?.user_metadata || {};
-      return {
-        id: authId,
-        authId: authId,
-        email: sessionUser?.email || '',
-        firstName: firstName || '',
-        lastName: lastName || '',
-        phoneNumber: phoneNumber || '',
-        balance: 0,
-        investments: [],
-        createdAt: sessionUser?.created_at || new Date().toISOString(),
-      };
+      console.log('loadUserProfile: Error caught, using fallback -', error instanceof Error ? error.message : String(error));
+      return fallbackUser;
     }
   };
 
@@ -183,6 +166,13 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         console.log('Auth state changed:', event);
 
         if (event === 'SIGNED_IN') {
+          // Prevent duplicate SIGNED_IN processing
+          if (processingRef.current) {
+            console.log('SIGNED_IN: Already processing, skipping duplicate');
+            return;
+          }
+          processingRef.current = true;
+
           if (session?.user) {
             console.log('SIGNED_IN: Loading user profile for', session.user.email);
             const userData = await loadUserProfile(session.user.id, session.user);
@@ -192,6 +182,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               setIsLoading(false);
             }
           }
+          processingRef.current = false;
         } else if (event === 'SIGNED_OUT') {
           console.log('SIGNED_OUT: Clearing user');
           if (isMounted) {
