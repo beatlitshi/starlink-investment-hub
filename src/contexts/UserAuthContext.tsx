@@ -148,20 +148,25 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event);
+      try {
+        console.log('Auth state changed:', event);
 
-      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
-        if (session?.user) {
-          console.log('Loading user for event:', event);
-          const userData = await loadUserProfile(session.user.id, session.user);
-          setUser(userData);
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
+          if (session?.user) {
+            console.log('Loading user for event:', event);
+            const userData = await loadUserProfile(session.user.id, session.user);
+            setUser(userData);
+          }
+        } else if (event === 'SIGNED_OUT') {
+          console.log('User signed out');
+          setUser(null);
         }
-      } else if (event === 'SIGNED_OUT') {
-        console.log('User signed out');
-        setUser(null);
-      }
 
-      setIsLoading(false);
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error in auth state change handler:', error);
+        setIsLoading(false);
+      }
     });
 
     return () => subscription?.unsubscribe();
