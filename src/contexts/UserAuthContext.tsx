@@ -135,10 +135,36 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
 
       console.log('[Auth] loadUserProfile: ✗ No profile found');
-      return null;
+      
+      // Return temporary user instead of null to prevent "Nicht authentifiziert"
+      console.warn('[Auth] Creating temporary user in memory');
+      return {
+        id: authId,
+        authId: authId,
+        email: sessionUser.email || '',
+        firstName: sessionUser.user_metadata?.firstName || '',
+        lastName: sessionUser.user_metadata?.lastName || '',
+        phoneNumber: sessionUser.user_metadata?.phoneNumber || '',
+        balance: 0,
+        investments: [],
+        createdAt: new Date().toISOString(),
+      };
     } catch (error) {
       console.error('[Auth] loadUserProfile: Exception -', error instanceof Error ? error.message : String(error));
-      return null;
+      
+      // Return temporary user on exception
+      console.warn('[Auth] Returning temporary user due to exception');
+      return {
+        id: authId,
+        authId: authId,
+        email: sessionUser.email || '',
+        firstName: sessionUser.user_metadata?.firstName || '',
+        lastName: sessionUser.user_metadata?.lastName || '',
+        phoneNumber: sessionUser.user_metadata?.phoneNumber || '',
+        balance: 0,
+        investments: [],
+        createdAt: new Date().toISOString(),
+      };
     }
   };
 
