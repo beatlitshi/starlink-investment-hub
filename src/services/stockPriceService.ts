@@ -56,7 +56,7 @@ export class StockPriceService {
   }
 
   /**
-   * Load stock controls from database (with retry on AbortError)
+   * Load stock controls from database (with retry on AbortError and exponential backoff)
    */
   private async loadStockControls() {
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -69,7 +69,7 @@ export class StockPriceService {
         if (error) {
           // Table might not exist yet - just log and continue
           if (attempt === 0) {
-            console.log('Stock controls table not available yet:', error.message);
+            console.log('[Stocks] Stock controls table not available:', error.message);
           }
           return;
         }
@@ -82,11 +82,12 @@ export class StockPriceService {
         return; // Success, exit
       } catch (error: any) {
         if (error.name === 'AbortError' && attempt < 2) {
-          console.warn(`[Stocks] AbortError on attempt ${attempt + 1}, retrying...`);
-          await new Promise(resolve => setTimeout(resolve, 100));
+          const delay = 300 * (attempt + 1); // 300ms, 600ms
+          console.warn(`[Stocks] AbortError on attempt ${attempt + 1}, retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
-        console.warn('Could not load stock controls:', error);
+        console.warn('[Stocks] Could not load stock controls:', error.message || error);
         return;
       }
     }
