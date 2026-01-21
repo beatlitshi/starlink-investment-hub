@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { supabase, queueSupabaseRequest } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 // Deploy trigger: Fix cold start timeout + auto-create user
 
@@ -50,74 +50,45 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Helper function to load user profile from database
   const loadUserProfile = async (authId: string, sessionUser: any): Promise<User | null> => {
     try {
-      console.log('[Auth] loadUserProfile: Fetching user with auth_id:', authId);
-
-      // Use queue to prevent AbortError
-      const { data: profile, error } = await queueSupabaseRequest(() =>
-        supabase
-          .from('users')
-          .select('*')
-          .eq('auth_id', authId)
-          .single()
-      );
+      const { data: profile, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('auth_id', authId)
+        .single();
 
       if (error) {
-        console.error('[Auth] loadUserProfile: Query error -', error.message, error.code);
-        
-        // If profile not found (PGRST116), create it
+        // If not found, create user
         if (error.code === 'PGRST116') {
-          console.log('[Auth] loadUserProfile: User not found, creating...');
-          
-          const { data: insertedProfile, error: insertError } = await queueSupabaseRequest(() =>
-            supabase
-              .from('users')
-              .insert({
-                auth_id: authId,
-                email: sessionUser.email,
-                first_name: sessionUser.user_metadata?.firstName || '',
-                last_name: sessionUser.user_metadata?.lastName || '',
-                phone_number: sessionUser.user_metadata?.phoneNumber || '',
-                balance: 0,
-                investments: [],
-              })
-              .select()
-              .single()
-          );
-          
-          if (insertError) {
-            console.error('[Auth] Failed to create user profile:', insertError);
-            // Return temporary user
-            return {
-              id: authId,
-              authId: authId,
-              email: sessionUser.email || '',
-              firstName: sessionUser.user_metadata?.firstName || '',
-              lastName: sessionUser.user_metadata?.lastName || '',
-              phoneNumber: sessionUser.user_metadata?.phoneNumber || '',
+          const { data: newProfile, error: insertError } = await supabase
+            .from('users')
+            .insert({
+              auth_id: authId,
+              email: sessionUser.email,
+              first_name: sessionUser.user_metadata?.firstName || '',
+              last_name: sessionUser.user_metadata?.lastName || '',
+              phone_number: sessionUser.user_metadata?.phoneNumber || '',
               balance: 0,
               investments: [],
-              createdAt: new Date().toISOString(),
-            };
-          }
-          
-          if (insertedProfile) {
-            console.log('[Auth] ✓ User profile created');
+            })
+            .select()
+            .single();
+
+          if (!insertError && newProfile) {
             return {
-              id: insertedProfile.id,
+              id: newProfile.id,
               authId: authId,
-              email: insertedProfile.email || '',
-              firstName: insertedProfile.first_name || '',
-              lastName: insertedProfile.last_name || '',
-              phoneNumber: insertedProfile.phone_number || '',
-              balance: insertedProfile.balance || 0,
-              investments: insertedProfile.investments || [],
-              createdAt: insertedProfile.created_at || new Date().toISOString(),
+              email: newProfile.email || '',
+              firstName: newProfile.first_name || '',
+              lastName: newProfile.last_name || '',
+              phoneNumber: newProfile.phone_number || '',
+              balance: newProfile.balance || 0,
+              investments: newProfile.investments || [],
+              createdAt: newProfile.created_at || new Date().toISOString(),
             };
           }
         }
         
-        // For abort errors or other errors, return temporary user
-        console.warn('[Auth] Returning temporary user due to error');
+        // Return temp user on any error
         return {
           id: authId,
           authId: authId,
@@ -132,11 +103,6 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
 
       if (profile) {
-        console.log('[Auth] loadUserProfile: ✓ Profile found:', {
-          id: profile.id,
-          email: profile.email,
-          balance: profile.balance,
-        });
         return {
           id: profile.id,
           authId: authId,
@@ -150,26 +116,9 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         };
       }
 
-      console.log('[Auth] loadUserProfile: ✗ No profile found');
-      
-      // Return temporary user instead of null
-      console.warn('[Auth] Creating temporary user in memory');
-      return {
-        id: authId,
-        authId: authId,
-        email: sessionUser.email || '',
-        firstName: sessionUser.user_metadata?.firstName || '',
-        lastName: sessionUser.user_metadata?.lastName || '',
-        phoneNumber: sessionUser.user_metadata?.phoneNumber || '',
-        balance: 0,
-        investments: [],
-        createdAt: new Date().toISOString(),
-      };
+      return null;
     } catch (error) {
-      console.error('[Auth] loadUserProfile: Exception -', error instanceof Error ? error.message : String(error));
-      
-      // Return temporary user on exception
-      console.warn('[Auth] Returning temporary user due to exception');
+      // Return temp user on exception
       return {
         id: authId,
         authId: authId,
@@ -192,58 +141,23 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const initializeAuth = async () => {
       try {
-        console.log('[Auth] Initializing session on app load...');
-        console.log('[Auth] Checking localStorage for session...');
-        
-        let session = null;
-        let sessionError = null;
-        
-        // Retry logic for AbortError with exponential backoff
-        for (let attempt = 0; attempt < 3; attempt++) {
-          try {
-            const result = await queueSupabaseRequest(() => supabase.auth.getSession());
-            session = result.data.session;
-            sessionError = result.error;
-            break; // Success, exit retry loop
-          } catch (err: any) {
-            if (err.name === 'AbortError' && attempt < 2) {
-              const delay = 300 * (attempt + 1); // 300ms, 600ms
-              console.warn(`[Auth] AbortError on attempt ${attempt + 1}, retrying in ${delay}ms...`);
-              await new Promise(resolve => setTimeout(resolve, delay));
-              continue;
-            }
-            sessionError = err;
-            break;
-          }
-        }
+        const { data: { session } } = await supabase.auth.getSession();
         
         if (!isMounted) return;
 
-        if (sessionError) {
-          console.error('[Auth] Session error on init:', sessionError);
+        if (session?.user) {
+          // Let INITIAL_SESSION event handle profile loading
+          console.log('[Auth] Session found, waiting for event...');
+        } else {
           setUser(null);
           setIsLoading(false);
-          return;
         }
-
-        if (session?.user) {
-          console.log('[Auth] ✓ Session found, user:', session.user.email);
-          console.log('[Auth] Session expires at:', new Date(session.expires_at! * 1000).toISOString());
-          
-          // DON'T load profile here - let INITIAL_SESSION event handle it
-          // This prevents duplicate requests that abort each other
-          console.log('[Auth] Waiting for INITIAL_SESSION event...');
-        } else {
-          if (isMounted) {
-            console.log('[Auth] No session found on init');
-            setUser(null);
-            setIsLoading(false);
-          }
+      } catch (error: any) {
+        // Ignore AbortError - just wait for auth event
+        if (error.name !== 'AbortError') {
+          console.error('[Auth] Init error:', error);
         }
-      } catch (error) {
-        console.error('[Auth] Init error:', error);
         if (isMounted) {
-          setUser(null);
           setIsLoading(false);
         }
       }
@@ -264,19 +178,15 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     sessionCheckIntervalRef.current = setInterval(async () => {
       if (!isMounted) return;
       try {
-        const { data: { session } } = await queueSupabaseRequest(() => supabase.auth.getSession());
+        const { data: { session } } = await supabase.auth.getSession();
         if (!session && user) {
-          console.log('[Auth] Session expired, logging out');
           setUser(null);
-        } else if (session && !user) {
-          console.log('[Auth] Session exists but user state lost, restoring...');
-          const userData = await loadUserProfile(session.user.id, session.user);
-          if (userData && isMounted) {
-            setUser(userData);
-          }
         }
-      } catch (error) {
-        console.error('[Auth] Session check error:', error);
+      } catch (error: any) {
+        // Ignore AbortError in background check
+        if (error.name !== 'AbortError') {
+          console.error('[Auth] Session check error:', error);
+        }
       }
     }, 120000); // 2 minutes
 
