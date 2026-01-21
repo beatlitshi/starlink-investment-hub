@@ -47,72 +47,84 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const refreshDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const sessionCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Helper function to load user profile from database with timeout
+  // Helper function to load user profile from database
   const loadUserProfile = async (authId: string, sessionUser: any): Promise<User | null> => {
     try {
       console.log('[Auth] loadUserProfile: Fetching user with auth_id:', authId);
 
-      // Create timeout promise that returns proper structure (10 seconds for slow connections)
-      const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((resolve) => {
-        setTimeout(() => {
-          console.error('[Auth] loadUserProfile: Query timeout after 10s');
-          resolve({ data: null, error: { message: 'Query timeout' } });
-        }, 10000);
-      });
-
-      // Create query promise
-      const queryPromise = supabase
+      // Direct query - no timeout needed with Pro tier
+      const { data: profile, error } = await supabase
         .from('users')
         .select('*')
         .eq('auth_id', authId)
         .single();
 
-      // Race both promises
-      const result = await Promise.race([queryPromise, timeoutPromise]);
-      
-      const { data: profile, error } = result;
-
       if (error) {
-        console.error('[Auth] loadUserProfile: Query error -', error.message);
+        console.error('[Auth] loadUserProfile: Query error -', error.message, error.code);
         
-        // If profile not found, try to create it
-        if (error.message.includes('timeout') || error.code === 'PGRST116') {
-          console.log('[Auth] loadUserProfile: Creating new user profile...');
-          const newUser: User = {
-            id: authId,
-            authId: authId,
-            email: sessionUser.email || '',
-            firstName: sessionUser.user_metadata?.firstName || '',
-            lastName: sessionUser.user_metadata?.lastName || '',
-            phoneNumber: sessionUser.user_metadata?.phoneNumber || '',
-            balance: 0,
-            investments: [],
-            createdAt: new Date().toISOString(),
-          };
+        // If profile not found (PGRST116), create it
+        if (error.code === 'PGRST116') {
+          console.log('[Auth] loadUserProfile: User not found, creating...');
           
-          // Insert user to database
-          const { error: insertError } = await supabase
+          const { data: insertedProfile, error: insertError } = await supabase
             .from('users')
             .insert({
               auth_id: authId,
               email: sessionUser.email,
-              first_name: newUser.firstName,
-              last_name: newUser.lastName,
-              phone_number: newUser.phoneNumber,
+              first_name: sessionUser.user_metadata?.firstName || '',
+              last_name: sessionUser.user_metadata?.lastName || '',
+              phone_number: sessionUser.user_metadata?.phoneNumber || '',
               balance: 0,
               investments: [],
-            });
+            })
+            .select()
+            .single();
           
           if (insertError) {
             console.error('[Auth] Failed to create user profile:', insertError);
-            return null;
-          } else {
-            console.log('[Auth] ✓ User profile auto-created');
-            return newUser;
+            // Return temporary user
+            return {
+              id: authId,
+              authId: authId,
+              email: sessionUser.email || '',
+              firstName: sessionUser.user_metadata?.firstName || '',
+              lastName: sessionUser.user_metadata?.lastName || '',
+              phoneNumber: sessionUser.user_metadata?.phoneNumber || '',
+              balance: 0,
+              investments: [],
+              createdAt: new Date().toISOString(),
+            };
+          }
+          
+          if (insertedProfile) {
+            console.log('[Auth] ✓ User profile created');
+            return {
+              id: insertedProfile.id,
+              authId: authId,
+              email: insertedProfile.email || '',
+              firstName: insertedProfile.first_name || '',
+              lastName: insertedProfile.last_name || '',
+              phoneNumber: insertedProfile.phone_number || '',
+              balance: insertedProfile.balance || 0,
+              investments: insertedProfile.investments || [],
+              createdAt: insertedProfile.created_at || new Date().toISOString(),
+            };
           }
         }
         
-        return null;
+        // For abort errors or other errors, return temporary user
+        console.warn('[Auth] Returning temporary user due to error');
+        return {
+          id: authId,
+          authId: authId,
+          email: sessionUser.email || '',
+          firstName: sessionUser.user_metadata?.firstName || '',
+          lastName: sessionUser.user_metadata?.lastName || '',
+          phoneNumber: sessionUser.user_metadata?.phoneNumber || '',
+          balance: 0,
+          investments: [],
+          createdAt: new Date().toISOString(),
+        };
       }
 
       if (profile) {
@@ -136,7 +148,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       console.log('[Auth] loadUserProfile: ✗ No profile found');
       
-      // Return temporary user instead of null to prevent "Nicht authentifiziert"
+      // Return temporary user instead of null
       console.warn('[Auth] Creating temporary user in memory');
       return {
         id: authId,
@@ -194,20 +206,9 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           console.log('[Auth] ✓ Session found, user:', session.user.email);
           console.log('[Auth] Session expires at:', new Date(session.expires_at! * 1000).toISOString());
           
-          // Load profile immediately (don't wait for auth state change)
-          console.log('[Auth] Loading profile immediately...');
-          const userData = await loadUserProfile(session.user.id, session.user);
-          
-          if (isMounted) {
-            if (userData) {
-              console.log('[Auth] ✓ Profile loaded successfully:', userData.email);
-              setUser(userData);
-              lastBalanceRefreshRef.current = Date.now();
-            } else {
-              console.warn('[Auth] ✗ Profile not found for session user');
-            }
-            setIsLoading(false);
-          }
+          // DON'T load profile here - let INITIAL_SESSION event handle it
+          // This prevents duplicate requests that abort each other
+          console.log('[Auth] Waiting for INITIAL_SESSION event...');
         } else {
           if (isMounted) {
             console.log('[Auth] No session found on init');
