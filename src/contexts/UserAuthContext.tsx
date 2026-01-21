@@ -191,7 +191,26 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         console.log('[Auth] Initializing session on app load...');
         console.log('[Auth] Checking localStorage for session...');
         
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        let session = null;
+        let sessionError = null;
+        
+        // Retry logic for AbortError
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            const result = await supabase.auth.getSession();
+            session = result.data.session;
+            sessionError = result.error;
+            break; // Success, exit retry loop
+          } catch (err: any) {
+            if (err.name === 'AbortError' && attempt < 2) {
+              console.warn(`[Auth] AbortError on attempt ${attempt + 1}, retrying...`);
+              await new Promise(resolve => setTimeout(resolve, 100)); // Wait 100ms
+              continue;
+            }
+            sessionError = err;
+            break;
+          }
+        }
         
         if (!isMounted) return;
 

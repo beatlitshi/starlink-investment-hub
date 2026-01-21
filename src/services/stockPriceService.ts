@@ -56,28 +56,39 @@ export class StockPriceService {
   }
 
   /**
-   * Load stock controls from database
+   * Load stock controls from database (with retry on AbortError)
    */
   private async loadStockControls() {
-    try {
-      const { data, error } = await supabase
-        .from('stock_controls')
-        .select('*')
-        .eq('is_active', true);
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const { data, error } = await supabase
+          .from('stock_controls')
+          .select('*')
+          .eq('is_active', true);
 
-      if (error) {
-        // Table might not exist yet - just log and continue
-        console.log('Stock controls table not available yet:', error.message);
+        if (error) {
+          // Table might not exist yet - just log and continue
+          if (attempt === 0) {
+            console.log('Stock controls table not available yet:', error.message);
+          }
+          return;
+        }
+
+        if (!error && data) {
+          data.forEach((control: StockControl) => {
+            this.stockControls.set(control.symbol, control);
+          });
+        }
+        return; // Success, exit
+      } catch (error: any) {
+        if (error.name === 'AbortError' && attempt < 2) {
+          console.warn(`[Stocks] AbortError on attempt ${attempt + 1}, retrying...`);
+          await new Promise(resolve => setTimeout(resolve, 100));
+          continue;
+        }
+        console.warn('Could not load stock controls:', error);
         return;
       }
-
-      if (!error && data) {
-        data.forEach((control: StockControl) => {
-          this.stockControls.set(control.symbol, control);
-        });
-      }
-    } catch (error) {
-      console.warn('Could not load stock controls:', error);
     }
   }
 
