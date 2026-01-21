@@ -3,8 +3,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 
-// Deploy trigger: Fix cold start timeout + auto-create user
-
 interface User {
   id: string;
   authId: string;
@@ -13,7 +11,7 @@ interface User {
   lastName: string;
   phoneNumber: string;
   balance: number;
-  investments: any[]; // Adjust type as needed
+  investments: any[];
   createdAt: string;
 }
 
@@ -42,283 +40,158 @@ const UserAuthContext = createContext<UserAuthContextType | undefined>(undefined
 export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const processingRef = useRef(false);
-  const lastBalanceRefreshRef = useRef<number>(0);
-  const refreshDebounceRef = useRef<NodeJS.Timeout | null>(null);
-  const sessionCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitialized = useRef(false);
 
-  // Helper function to load user profile from database
-  const loadUserProfile = async (authId: string, sessionUser: any): Promise<User | null> => {
+  // Load user profile from database
+  const loadUserProfile = useCallback(async (authId: string, email: string) => {
     try {
-      const { data: profile, error } = await supabase
+      const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('auth_id', authId)
-        .single();
+        .maybeSingle();
 
-      if (error) {
-        // If not found, create user
-        if (error.code === 'PGRST116') {
-          const { data: newProfile, error: insertError } = await supabase
-            .from('users')
-            .insert({
-              auth_id: authId,
-              email: sessionUser.email,
-              first_name: sessionUser.user_metadata?.firstName || '',
-              last_name: sessionUser.user_metadata?.lastName || '',
-              phone_number: sessionUser.user_metadata?.phoneNumber || '',
-              balance: 0,
-              investments: [],
-            })
-            .select()
-            .single();
+      if (error) throw error;
 
-          if (!insertError && newProfile) {
-            return {
-              id: newProfile.id,
-              authId: authId,
-              email: newProfile.email || '',
-              firstName: newProfile.first_name || '',
-              lastName: newProfile.last_name || '',
-              phoneNumber: newProfile.phone_number || '',
-              balance: newProfile.balance || 0,
-              investments: newProfile.investments || [],
-              createdAt: newProfile.created_at || new Date().toISOString(),
-            };
-          }
-        }
-        
-        // Return temp user on any error
+      if (data) {
         return {
-          id: authId,
+          id: data.id,
           authId: authId,
-          email: sessionUser.email || '',
-          firstName: sessionUser.user_metadata?.firstName || '',
-          lastName: sessionUser.user_metadata?.lastName || '',
-          phoneNumber: sessionUser.user_metadata?.phoneNumber || '',
+          email: data.email,
+          firstName: data.first_name || '',
+          lastName: data.last_name || '',
+          phoneNumber: data.phone_number || '',
+          balance: data.balance || 0,
+          investments: data.investments || [],
+          createdAt: data.created_at,
+        };
+      }
+
+      // Create user if doesn't exist
+      const { data: newUser, error: insertError } = await supabase
+        .from('users')
+        .insert({
+          auth_id: authId,
+          email: email,
           balance: 0,
           investments: [],
-          createdAt: new Date().toISOString(),
-        };
-      }
+        })
+        .select()
+        .single();
 
-      if (profile) {
-        return {
-          id: profile.id,
-          authId: authId,
-          email: profile.email || '',
-          firstName: profile.first_name || '',
-          lastName: profile.last_name || '',
-          phoneNumber: profile.phone_number || '',
-          balance: profile.balance || 0,
-          investments: profile.investments || [],
-          createdAt: profile.created_at || new Date().toISOString(),
-        };
-      }
+      if (insertError) throw insertError;
 
-      return null;
-    } catch (error) {
-      // Return temp user on exception
       return {
-        id: authId,
+        id: newUser.id,
         authId: authId,
-        email: sessionUser.email || '',
-        firstName: sessionUser.user_metadata?.firstName || '',
-        lastName: sessionUser.user_metadata?.lastName || '',
-        phoneNumber: sessionUser.user_metadata?.phoneNumber || '',
+        email: newUser.email,
+        firstName: '',
+        lastName: '',
+        phoneNumber: '',
         balance: 0,
         investments: [],
-        createdAt: new Date().toISOString(),
+        createdAt: newUser.created_at,
       };
+    } catch (err) {
+      console.error('Profile load error:', err);
+      return null;
     }
-  };
+  }, []);
 
+  // Initialize auth - only once
   useEffect(() => {
-    // Initialize auth
-    let isMounted = true;
-    let timeoutId: NodeJS.Timeout;
-    let profileLoadTimeout: NodeJS.Timeout;
+    if (isInitialized.current) return;
+    isInitialized.current = true;
 
-    const initializeAuth = async () => {
+    let mounted = true;
+
+    const initAuth = async () => {
       try {
+        // Get current session
         const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!isMounted) return;
 
-        if (session?.user) {
-          // Let INITIAL_SESSION event handle profile loading
-          console.log('[Auth] Session found, waiting for event...');
-        } else {
-          setUser(null);
-          setIsLoading(false);
+        if (session?.user && mounted) {
+          const profile = await loadUserProfile(session.user.id, session.user.email!);
+          if (profile && mounted) {
+            setUser(profile);
+          }
         }
-      } catch (error: any) {
-        // Ignore AbortError - just wait for auth event
-        if (error.name !== 'AbortError') {
-          console.error('[Auth] Init error:', error);
-        }
-        if (isMounted) {
+      } catch (err) {
+        console.error('Auth init error:', err);
+      } finally {
+        if (mounted) {
           setIsLoading(false);
         }
       }
     };
 
-    // Start initialization
-    initializeAuth();
-
-    // Safety timeout: force loading false after 15 seconds
-    timeoutId = setTimeout(() => {
-      if (isMounted) {
-        console.log('[Auth] Safety timeout reached');
-        setIsLoading(false);
-      }
-    }, 15000);
-
-    // Periodically check session is still valid (every 2 minutes)
-    sessionCheckIntervalRef.current = setInterval(async () => {
-      if (!isMounted) return;
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session && user) {
-          setUser(null);
-        }
-      } catch (error: any) {
-        // Ignore AbortError in background check
-        if (error.name !== 'AbortError') {
-          console.error('[Auth] Session check error:', error);
-        }
-      }
-    }, 120000); // 2 minutes
-
-    // Listen for auth changes
+    // Listen to auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!isMounted) return;
+      if (!mounted) return;
 
-      try {
-        console.log('[Auth] State changed:', event, session ? `user=${session.user?.email}` : 'no-session');
-
-        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-          // Clear the profile load timeout since auth event fired
-          if (profileLoadTimeout) {
-            clearTimeout(profileLoadTimeout);
-          }
-
-          // Prevent duplicate processing
-          if (processingRef.current) {
-            console.log(`[Auth] ${event}: Skipping (already processing)`);
-            return;
-          }
-          processingRef.current = true;
-
-          if (session?.user) {
-            console.log(`[Auth] ${event}: Loading profile for ${session.user.email}`);
-            try {
-              const userData = await loadUserProfile(session.user.id, session.user);
-              if (isMounted) {
-                if (userData) {
-                  console.log(`[Auth] ${event}: ✓ User loaded -`, userData.email);
-                  setUser(userData);
-                  lastBalanceRefreshRef.current = Date.now();
-              } else {
-                console.log(`[Auth] ${event}: ✗ Profile not found`);
-                // Try to create a default user profile if it doesn't exist
-                const newUser: User = {
-                  id: session.user.id,
-                  authId: session.user.id,
-                  email: session.user.email || '',
-                  firstName: session.user.user_metadata?.firstName || '',
-                  lastName: session.user.user_metadata?.lastName || '',
-                  phoneNumber: session.user.user_metadata?.phoneNumber || '',
-                  balance: 0,
-                  investments: [],
-                  createdAt: new Date().toISOString(),
-                };
-                
-                // Insert user to database
-                const { error: insertError } = await supabase
-                  .from('users')
-                  .insert({
-                    auth_id: session.user.id,
-                    email: session.user.email,
-                    first_name: newUser.firstName,
-                    last_name: newUser.lastName,
-                    phone_number: newUser.phoneNumber,
-                    balance: 0,
-                    investments: [],
-                  });
-                
-                if (insertError) {
-                  console.error('[Auth] Failed to create user profile:', insertError);
-                  setUser(null);
-                } else {
-                  console.log('[Auth] ✓ User profile created');
-                  setUser(newUser);
-                }
-              }
-              setIsLoading(false);
-            }
-            } catch (profileError) {
-              console.error(`[Auth] ${event}: Profile load exception:`, profileError);
-              if (isMounted) {
-                setIsLoading(false);
-              }
-            }
-          } else {
-            console.log(`[Auth] ${event}: No user in session`);
-            setUser(null);
-            setIsLoading(false);
-          }
-          processingRef.current = false;
-        } else if (event === 'SIGNED_OUT') {
-          console.log('[Auth] SIGNED_OUT: Clearing user');
-          processingRef.current = false;
-          if (isMounted) {
-            setUser(null);
-            setIsLoading(false);
-          }
-        } else if (event === 'TOKEN_REFRESHED') {
-          console.log('[Auth] TOKEN_REFRESHED');
-          if (session?.user && user) {
-            console.log('[Auth] Refreshing user profile after token refresh');
-            const userData = await loadUserProfile(session.user.id, session.user);
-            if (isMounted && userData) {
-              setUser(userData);
-            }
-          }
+      if (event === 'SIGNED_IN' && session?.user) {
+        const profile = await loadUserProfile(session.user.id, session.user.email!);
+        if (profile && mounted) {
+          setUser(profile);
         }
-      } catch (error) {
-        console.error('[Auth] State change error:', error);
-        processingRef.current = false;
-        if (isMounted) {
-          setIsLoading(false);
+        setIsLoading(false);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setIsLoading(false);
+      } else if (event === 'INITIAL_SESSION' && session?.user) {
+        const profile = await loadUserProfile(session.user.id, session.user.email!);
+        if (profile && mounted) {
+          setUser(profile);
         }
+        setIsLoading(false);
       }
     });
 
-    return () => {
-      isMounted = false;
-      clearTimeout(timeoutId);
-      clearTimeout(profileLoadTimeout);
-      if (sessionCheckIntervalRef.current) {
-        clearInterval(sessionCheckIntervalRef.current);
-      }
-      subscription?.unsubscribe();
-    };
-  }, []);
+    initAuth();
 
-  const register = async (data: RegisterData): Promise<{ success: boolean; error?: string }> => {
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [loadUserProfile]);
+
+  const login = useCallback(async (email: string, password: string) => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      if (data.user) {
+        const profile = await loadUserProfile(data.user.id, data.user.email!);
+        if (profile) {
+          setUser(profile);
+          return { success: true };
+        }
+      }
+
+      return { success: false, error: 'Failed to load profile' };
+    } catch (err) {
+      return { success: false, error: String(err) };
+    }
+  }, [loadUserProfile]);
+
+  const register = useCallback(async (data: RegisterData) => {
     try {
       const { data: authData, error } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/personal-dashboard`,
           data: {
             firstName: data.firstName,
             lastName: data.lastName,
             phoneNumber: data.phoneNumber,
-          }
-        }
+          },
+        },
       });
 
       if (error) {
@@ -326,7 +199,6 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
 
       if (authData.user) {
-        // Insert user profile into database
         const { error: insertError } = await supabase
           .from('users')
           .insert({
@@ -340,143 +212,88 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           });
 
         if (insertError) {
-          console.error('Error inserting user profile:', insertError);
-          // Still return success as auth worked
+          console.error('User profile creation error:', insertError);
         }
 
-        // User registered successfully
         return { success: true };
       }
 
       return { success: false, error: 'Registration failed' };
-    } catch (error: any) {
-      return { success: false, error: error.message || 'Registration failed' };
+    } catch (err) {
+      return { success: false, error: String(err) };
     }
-  };
+  }, []);
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+  const logout = useCallback(async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+  }, []);
 
-      if (error) {
-        console.error('Login error:', error.message);
-        return { success: false, error: error.message };
-      }
-
-      if (data.user) {
-        console.log('Login successful, user authenticated:', data.user.email);
-        // Wait a moment for the auth state change listener to process
-        await new Promise(resolve => setTimeout(resolve, 500));
-        return { success: true };
-      }
-
-      return { success: false, error: 'Login failed' };
-    } catch (error: any) {
-      console.error('Login exception:', error);
-      return { success: false, error: error.message || 'Login failed' };
-    }
-  };
-
-  const updateBalance = async (newBalance: number) => {
-    if (!user || !supabase) return;
-
-    const { error } = await supabase
-      .from('users')
-      .update({ balance: newBalance })
-      .eq('id', user.id);
-
-    if (error) {
-      console.error('Error updating balance:', error);
-    } else {
-      setUser({ ...user, balance: newBalance });
-    }
-  };
-
-  const updateInvestments = async (investments: any[]) => {
+  const updateBalance = useCallback(async (newBalance: number) => {
     if (!user) return;
 
-    const { error } = await supabase
-      .from('users')
-      .update({ investments })
-      .eq('id', user.id);
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ balance: newBalance })
+        .eq('auth_id', user.authId);
 
-    if (error) {
-      console.error('Error updating investments:', error);
-    } else {
-      setUser({ ...user, investments });
+      if (!error) {
+        setUser(prev => prev ? { ...prev, balance: newBalance } : null);
+      }
+    } catch (err) {
+      console.error('Balance update error:', err);
     }
-  };
+  }, [user]);
+
+  const updateInvestments = useCallback(async (investments: any[]) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ investments })
+        .eq('auth_id', user.authId);
+
+      if (!error) {
+        setUser(prev => prev ? { ...prev, investments } : null);
+      }
+    } catch (err) {
+      console.error('Investments update error:', err);
+    }
+  }, [user]);
 
   const refreshBalance = useCallback(async () => {
     if (!user) return;
-    
-    // Debounce: only refresh if at least 3 seconds have passed since last refresh
-    const now = Date.now();
-    if (now - lastBalanceRefreshRef.current < 3000) {
-      console.log('[Balance] Refresh debounced');
-      return;
-    }
 
-    // Clear any pending refresh
-    if (refreshDebounceRef.current) {
-      clearTimeout(refreshDebounceRef.current);
-    }
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('balance')
+        .eq('auth_id', user.authId)
+        .single();
 
-    // Schedule refresh after 500ms to batch multiple calls
-    refreshDebounceRef.current = setTimeout(async () => {
-      try {
-        console.log('[Balance] Fetching fresh balance...');
-        const { data: profile, error } = await supabase
-          .from('users')
-          .select('balance, investments')
-          .eq('id', user.id)
-          .single();
-        
-        if (error) {
-          console.error('[Balance] Error:', error);
-          return;
-        }
-
-        if (profile && profile.balance !== user.balance) {
-          console.log('[Balance] Updated to:', profile.balance);
-          setUser(prevUser => prevUser ? {
-            ...prevUser,
-            balance: profile.balance || 0,
-            investments: profile.investments || [],
-          } : null);
-        }
-        lastBalanceRefreshRef.current = Date.now();
-      } catch (e) {
-        console.error('[Balance] Exception:', e);
+      if (!error && data) {
+        setUser(prev => prev ? { ...prev, balance: data.balance } : null);
       }
-    }, 500);
+    } catch (err) {
+      console.error('Balance refresh error:', err);
+    }
   }, [user]);
 
-  const logout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
+  const value = {
+    user,
+    isAuthenticated: !!user,
+    login,
+    register,
+    logout,
+    isLoading,
+    updateBalance,
+    updateInvestments,
+    refreshBalance,
   };
 
-  return (
-    <UserAuthContext.Provider
-      value={{
-        user,
-        isAuthenticated: !!user,
-        login,
-        register,
-        logout,
-        isLoading,
-        updateBalance,
-        updateInvestments,
-        refreshBalance,
-      }}
-    >
-      {children}
-    </UserAuthContext.Provider>
-  );
+  return <UserAuthContext.Provider value={value}>{children}</UserAuthContext.Provider>;
 };
 
 export const useUserAuth = () => {
