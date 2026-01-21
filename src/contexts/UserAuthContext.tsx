@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase, queueSupabaseRequest } from '@/lib/supabase';
 
 // Deploy trigger: Fix cold start timeout + auto-create user
 
@@ -52,12 +52,14 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       console.log('[Auth] loadUserProfile: Fetching user with auth_id:', authId);
 
-      // Direct query - no timeout needed with Pro tier
-      const { data: profile, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('auth_id', authId)
-        .single();
+      // Use queue to prevent AbortError
+      const { data: profile, error } = await queueSupabaseRequest(() =>
+        supabase
+          .from('users')
+          .select('*')
+          .eq('auth_id', authId)
+          .single()
+      );
 
       if (error) {
         console.error('[Auth] loadUserProfile: Query error -', error.message, error.code);
@@ -66,19 +68,21 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (error.code === 'PGRST116') {
           console.log('[Auth] loadUserProfile: User not found, creating...');
           
-          const { data: insertedProfile, error: insertError } = await supabase
-            .from('users')
-            .insert({
-              auth_id: authId,
-              email: sessionUser.email,
-              first_name: sessionUser.user_metadata?.firstName || '',
-              last_name: sessionUser.user_metadata?.lastName || '',
-              phone_number: sessionUser.user_metadata?.phoneNumber || '',
-              balance: 0,
-              investments: [],
-            })
-            .select()
-            .single();
+          const { data: insertedProfile, error: insertError } = await queueSupabaseRequest(() =>
+            supabase
+              .from('users')
+              .insert({
+                auth_id: authId,
+                email: sessionUser.email,
+                first_name: sessionUser.user_metadata?.firstName || '',
+                last_name: sessionUser.user_metadata?.lastName || '',
+                phone_number: sessionUser.user_metadata?.phoneNumber || '',
+                balance: 0,
+                investments: [],
+              })
+              .select()
+              .single()
+          );
           
           if (insertError) {
             console.error('[Auth] Failed to create user profile:', insertError);
@@ -197,7 +201,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         // Retry logic for AbortError with exponential backoff
         for (let attempt = 0; attempt < 3; attempt++) {
           try {
-            const result = await supabase.auth.getSession();
+            const result = await queueSupabaseRequest(() => supabase.auth.getSession());
             session = result.data.session;
             sessionError = result.error;
             break; // Success, exit retry loop
@@ -260,7 +264,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     sessionCheckIntervalRef.current = setInterval(async () => {
       if (!isMounted) return;
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session } } = await queueSupabaseRequest(() => supabase.auth.getSession());
         if (!session && user) {
           console.log('[Auth] Session expired, logging out');
           setUser(null);

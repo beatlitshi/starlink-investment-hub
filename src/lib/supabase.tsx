@@ -8,51 +8,83 @@ let supabaseInstance: SupabaseClient | null = null;
 
 // Global initialization lock to prevent race conditions
 let isInitializing = false;
-const initPromises: Array<(client: SupabaseClient) => void> = [];
+let initComplete = false;
+const initPromises: Array<() => void> = [];
+
+// Request queue to prevent overwhelming Supabase
+let requestQueue: Promise<any> = Promise.resolve();
+let queuedRequests = 0;
 
 function getSupabaseClient(): SupabaseClient {
   // If already created, return it immediately
-  if (supabaseInstance) {
+  if (supabaseInstance && initComplete) {
     return supabaseInstance;
   }
 
   // If currently initializing, wait for it
   if (isInitializing) {
     return new Promise<SupabaseClient>((resolve) => {
-      initPromises.push(resolve);
+      initPromises.push(() => resolve(supabaseInstance!));
     }) as any;
   }
 
   // Create the client
   isInitializing = true;
   
-  supabaseInstance = createClient(supabaseUrl, supabaseKey, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-      storageKey: 'starlink-auth-token',
-      flowType: 'pkce',
-    },
-    global: {
-      headers: {
-        'X-Client-Info': 'starlink-investment-hub',
+  try {
+    supabaseInstance = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+        storageKey: 'starlink-auth-token',
+        flowType: 'pkce',
       },
-    },
-    db: {
-      schema: 'public',
-    },
-  });
+      global: {
+        headers: {
+          'X-Client-Info': 'starlink-investment-hub',
+        },
+      },
+      db: {
+        schema: 'public',
+      },
+    });
 
-  // Resolve all waiting promises
-  initPromises.forEach(resolve => resolve(supabaseInstance!));
-  initPromises.length = 0;
-  isInitializing = false;
+    console.log('[Supabase] Client initialized');
 
-  console.log('[Supabase] Client initialized');
+    // Resolve all waiting promises
+    initPromises.forEach(resolve => resolve());
+    initPromises.length = 0;
+    
+    initComplete = true;
+    isInitializing = false;
 
-  return supabaseInstance;
+    return supabaseInstance;
+  } catch (error) {
+    console.error('[Supabase] Failed to initialize:', error);
+    isInitializing = false;
+    throw error;
+  }
+}
+
+// Helper to queue Supabase requests to prevent AbortError
+export function queueSupabaseRequest<T>(fn: () => Promise<T>): Promise<T> {
+  queuedRequests++;
+  
+  if (queuedRequests > 50) {
+    console.warn('[Supabase] Queue backing up:', queuedRequests, 'requests');
+  }
+  
+  const promise = requestQueue
+    .then(() => fn())
+    .finally(() => {
+      queuedRequests--;
+    });
+  
+  requestQueue = promise.catch(() => {}); // Don't let errors block queue
+  
+  return promise;
 }
 
 export const supabase = getSupabaseClient();
