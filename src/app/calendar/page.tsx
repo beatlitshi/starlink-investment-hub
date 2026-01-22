@@ -151,8 +151,7 @@ export default function CalendarPage() {
     return appointments.filter(apt => 
       apt.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       apt.agentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      apt.phoneNumber.includes(searchQuery) ||
-      apt.email.toLowerCase().includes(searchQuery.toLowerCase())
+      apt.phoneNumber.includes(searchQuery)
     );
   };
 
