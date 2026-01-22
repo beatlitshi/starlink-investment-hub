@@ -104,53 +104,34 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     isInitialized.current = true;
 
     let mounted = true;
-    const loadTimeout = setTimeout(() => {
-      if (mounted) {
-        console.log('Auth loading timeout (10s) - forcing clear');
-        setIsLoading(false);
-      }
-    }, 10000); // Increased from 4s to 10s
 
     const initAuth = async () => {
       try {
-        console.log('initAuth: Getting session...');
-        // Get current session
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        // Get current session immediately
+        const { data: { session } } = await supabase.auth.getSession();
         
-        if (sessionError) {
-          console.error('Session error:', sessionError);
-        }
+        if (!mounted) return;
 
-        if (session?.user && mounted) {
-          console.log('Session found, loading profile for:', session.user.email);
-          try {
-            console.log('initAuth: Starting profile load...');
-            const profile = await loadUserProfile(session.user.id, session.user.email!);
-            console.log('initAuth: Profile load complete:', profile ? 'success' : 'null');
-            if (profile && mounted) {
-              console.log('Profile loaded successfully');
+        if (session?.user) {
+          // Set loading state for UI
+          setIsLoading(true);
+          
+          // Load profile with timeout - if it takes too long, use fallback
+          const profileTimeout = new Promise<User | null>((resolve) => {
+            setTimeout(() => {
+              resolve(null); // Timeout returns null, will trigger fallback
+            }, 5000); // 5 second timeout for profile load only
+          });
+
+          const profilePromise = loadUserProfile(session.user.id, session.user.email!);
+          
+          const profile = await Promise.race([profilePromise, profileTimeout]);
+
+          if (mounted) {
+            if (profile) {
               setUser(profile);
             } else {
-              console.warn('Profile load returned null, but keeping session');
-              // Even if profile fails, keep user logged in with basic info
-              if (mounted) {
-                setUser({
-                  id: '',
-                  authId: session.user.id,
-                  email: session.user.email || '',
-                  firstName: '',
-                  lastName: '',
-                  phoneNumber: '',
-                  balance: 0,
-                  investments: [],
-                  createdAt: new Date().toISOString(),
-                });
-              }
-            }
-          } catch (profileErr) {
-            console.error('Profile load error:', profileErr);
-            // Fallback: set basic user info
-            if (mounted) {
+              // Use fallback - user is still authenticated
               setUser({
                 id: '',
                 authId: session.user.id,
@@ -163,62 +144,56 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 createdAt: new Date().toISOString(),
               });
             }
+            setIsLoading(false);
           }
-        } else if (!session?.user) {
-          console.log('No session found');
+        } else {
+          // No session - clear loading
+          if (mounted) {
+            setIsLoading(false);
+          }
         }
       } catch (err) {
         console.error('Auth init error:', err);
-      } finally {
         if (mounted) {
-          console.log('initAuth: Setting isLoading to false');
           setIsLoading(false);
         }
       }
     };
 
-    // Listen to auth changes
+    // FIRST: Set up auth state listener BEFORE calling initAuth
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
 
-      console.log('Auth state change:', event);
+      console.log('🔐 Auth event:', event, '- Email:', session?.user?.email);
 
-      // Only SIGNED_OUT should clear user - don't log out on errors
       if (event === 'SIGNED_OUT') {
-        console.log('User signed out');
+        console.log('✓ User signed out');
         setUser(null);
         setIsLoading(false);
         return;
       }
 
-      // For SIGNED_IN and INITIAL_SESSION, load profile
       if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
-        console.log('Loading profile for:', session.user.email);
-        try {
-          const profile = await loadUserProfile(session.user.id, session.user.email!);
-          if (profile && mounted) {
-            console.log('Profile loaded');
+        console.log('✓ Session active for:', session.user.email);
+        setIsLoading(true);
+
+        // Quick profile load with timeout
+        const profileTimeout = new Promise<User | null>((resolve) => {
+          setTimeout(() => {
+            console.warn('⚠️  Profile load timeout - using fallback');
+            resolve(null);
+          }, 5000);
+        });
+
+        const profilePromise = loadUserProfile(session.user.id, session.user.email!);
+        const profile = await Promise.race([profilePromise, profileTimeout]);
+
+        if (mounted) {
+          if (profile) {
+            console.log('✓ Profile loaded successfully');
             setUser(profile);
           } else {
-            console.warn('Profile null, using fallback');
-            if (mounted) {
-              setUser({
-                id: '',
-                authId: session.user.id,
-                email: session.user.email || '',
-                firstName: '',
-                lastName: '',
-                phoneNumber: '',
-                balance: 0,
-                investments: [],
-                createdAt: new Date().toISOString(),
-              });
-            }
-          }
-        } catch (err) {
-          console.error(`Profile load error on ${event}:`, err);
-          // Keep user logged in with fallback data
-          if (mounted) {
+            console.log('✓ Using fallback user object');
             setUser({
               id: '',
               authId: session.user.id,
@@ -231,79 +206,78 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               createdAt: new Date().toISOString(),
             });
           }
+          setIsLoading(false);
         }
-        setIsLoading(false);
-      } else {
-        // For other events, just stop loading
-        setIsLoading(false);
       }
     });
 
+    // SECOND: Call initAuth to restore session if it exists
     initAuth();
 
     return () => {
       mounted = false;
-      clearTimeout(loadTimeout);
       subscription.unsubscribe();
     };
   }, [loadUserProfile]);
 
   const login = useCallback(async (email: string, password: string) => {
     try {
-      console.log('Login attempt:', email);
+      console.log('🔑 Login attempt:', email);
+      setIsLoading(true);
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
-        console.error('Sign in error:', error);
+        console.error('❌ Sign in error:', error.message);
+        setIsLoading(false);
         return { success: false, error: error.message };
       }
 
-      if (data.user) {
-        console.log('Sign in successful, loading profile');
-        // Trigger profile load and let auth state change handle it
-        try {
-          const profile = await loadUserProfile(data.user.id, data.user.email!);
-          if (profile) {
-            console.log('Profile loaded in login');
-            setUser(profile);
-          } else {
-            console.log('Profile load returned null, using fallback');
-            setUser({
-              id: '',
-              authId: data.user.id,
-              email: data.user.email || '',
-              firstName: '',
-              lastName: '',
-              phoneNumber: '',
-              balance: 0,
-              investments: [],
-              createdAt: new Date().toISOString(),
-            });
-          }
-        } catch (profileErr) {
-          console.error('Profile load error in login:', profileErr);
-          // Still consider it successful - user is authenticated
-          setUser({
-            id: '',
-            authId: data.user.id,
-            email: data.user.email || '',
-            firstName: '',
-            lastName: '',
-            phoneNumber: '',
-            balance: 0,
-            investments: [],
-            createdAt: new Date().toISOString(),
-          });
-        }
-        return { success: true };
+      if (!data.user) {
+        console.error('❌ No user returned from login');
+        setIsLoading(false);
+        return { success: false, error: 'Login failed' };
       }
 
-      return { success: false, error: 'No user data' };
+      console.log('✓ Sign in successful, loading profile');
+
+      // Load profile with timeout
+      const profileTimeout = new Promise<User | null>((resolve) => {
+        setTimeout(() => {
+          console.warn('⚠️  Profile load timeout during login - using fallback');
+          resolve(null);
+        }, 5000);
+      });
+
+      const profilePromise = loadUserProfile(data.user.id, data.user.email!);
+      const profile = await Promise.race([profilePromise, profileTimeout]);
+
+      if (profile) {
+        console.log('✓ Profile loaded in login');
+        setUser(profile);
+      } else {
+        console.log('✓ Using fallback user object for login');
+        setUser({
+          id: '',
+          authId: data.user.id,
+          email: data.user.email || '',
+          firstName: '',
+          lastName: '',
+          phoneNumber: '',
+          balance: 0,
+          investments: [],
+          createdAt: new Date().toISOString(),
+        });
+      }
+
+      setIsLoading(false);
+      return { success: true };
     } catch (err) {
-      console.error('Login error:', err);
+      console.error('❌ Login exception:', err);
+      setIsLoading(false);
       return { success: false, error: String(err) };
     }
   }, [loadUserProfile]);
