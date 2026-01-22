@@ -8,10 +8,12 @@ interface Appointment {
   clientName: string;
   agentName: string;
   phoneNumber: string;
-  email: string;
+  appointmentType: string;
+  duration: number; // in minutes
+  location: string;
   date: string;
   time: string;
-  additionalInfo: string;
+  notes: string;
   status: 'pending' | 'completed' | 'cancelled';
   createdAt: string;
 }
@@ -34,9 +36,11 @@ export default function CalendarPage() {
     clientName: '',
     agentName: '',
     phoneNumber: '',
-    email: '',
+    appointmentType: 'Consultation',
+    duration: 30,
+    location: '',
     time: '09:00',
-    additionalInfo: '',
+    notes: '',
   });
 
   // Load appointments from localStorage
@@ -133,8 +137,8 @@ export default function CalendarPage() {
 
   // Add or update appointment
   const handleSaveAppointment = () => {
-    if (!selectedDate || !formData.clientName || !formData.agentName || !formData.phoneNumber || !formData.email) {
-      alert('Please fill in all required fields');
+    if (!selectedDate || !formData.clientName || !formData.agentName || !formData.phoneNumber) {
+      alert('Please fill in all required fields (Name, Agent, Phone)');
       return;
     }
 
@@ -158,9 +162,11 @@ export default function CalendarPage() {
       clientName: '',
       agentName: '',
       phoneNumber: '',
-      email: '',
+      appointmentType: 'Consultation',
+      duration: 30,
+      location: '',
       time: '09:00',
-      additionalInfo: '',
+      notes: '',
     });
     setShowAddModal(false);
     setSelectedDate('');
@@ -179,9 +185,11 @@ export default function CalendarPage() {
       clientName: apt.clientName,
       agentName: apt.agentName,
       phoneNumber: apt.phoneNumber,
-      email: apt.email,
+      appointmentType: apt.appointmentType,
+      duration: apt.duration,
+      location: apt.location,
       time: apt.time,
-      additionalInfo: apt.additionalInfo,
+      notes: apt.notes,
     });
     setSelectedDate(apt.date);
     setEditingId(apt.id);
@@ -225,9 +233,11 @@ export default function CalendarPage() {
                   clientName: '',
                   agentName: '',
                   phoneNumber: '',
-                  email: '',
+                  appointmentType: 'Consultation',
+                  duration: 30,
+                  location: '',
                   time: '09:00',
-                  additionalInfo: '',
+                  notes: '',
                 });
               }}
               className="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-accent transition-smooth"
@@ -293,12 +303,14 @@ export default function CalendarPage() {
                           clientName: '',
                           agentName: '',
                           phoneNumber: '',
-                          email: '',
+                          appointmentType: 'Consultation',
+                          duration: 30,
+                          location: '',
                           time: '09:00',
-                          additionalInfo: '',
+                          notes: '',
                         });
                       }}
-                      className={`min-h-24 p-2 rounded-lg border-2 transition-smooth cursor-pointer ${
+                      className={`min-h-28 p-2 rounded-lg border-2 transition-smooth cursor-pointer ${
                         isToday
                           ? 'bg-primary/20 border-primary'
                           : day.isCurrentMonth
@@ -313,11 +325,12 @@ export default function CalendarPage() {
                         <div className="space-y-1">
                           {day.appointments.slice(0, 2).map((apt, i) => (
                             <div key={i} className="text-xs bg-accent/20 text-accent rounded px-1 py-0.5 truncate">
-                              {apt.time}
+                              <div className="font-bold truncate">{apt.clientName}</div>
+                              <div className="text-xs text-muted-foreground">{apt.agentName.split(' ')[0]} • {apt.time}</div>
                             </div>
                           ))}
                           {day.appointments.length > 2 && (
-                            <div className="text-xs text-muted-foreground">+{day.appointments.length - 2} more</div>
+                            <div className="text-xs text-muted-foreground font-bold">+{day.appointments.length - 2} more</div>
                           )}
                         </div>
                       )}
@@ -347,13 +360,13 @@ export default function CalendarPage() {
 
               {/* Appointments Table */}
               {filteredAppointments.length > 0 ? (
-                <div className="space-y-2 max-h-96 overflow-y-auto">
+                <div className="space-y-2">
                   {filteredAppointments.map(apt => (
-                    <div key={apt.id} className="bg-muted rounded-lg p-4 hover:bg-muted/80 transition-smooth">
+                    <div key={apt.id} className="bg-muted rounded-lg p-4 hover:bg-muted/80 transition-smooth border border-border">
                       <div className="flex justify-between items-start gap-4">
                         <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <span className={`px-2 py-1 rounded text-xs font-bold ${
+                          <div className="flex items-center gap-3 mb-3">
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${
                               apt.status === 'completed' ? 'bg-green-900/50 text-green-400' :
                               apt.status === 'cancelled' ? 'bg-red-900/50 text-red-400' :
                               'bg-blue-900/50 text-blue-400'
@@ -362,52 +375,65 @@ export default function CalendarPage() {
                             </span>
                             <span className="text-sm font-bold text-foreground">{apt.date}</span>
                             <span className="text-sm font-bold text-accent">{apt.time}</span>
+                            {apt.duration && <span className="text-xs text-muted-foreground">({apt.duration} min)</span>}
                           </div>
-                          <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div className="grid grid-cols-3 gap-3 mb-3">
                             <div>
-                              <span className="text-muted-foreground">Client:</span>
-                              <p className="font-bold text-foreground">{apt.clientName}</p>
+                              <p className="text-xs text-muted-foreground font-semibold uppercase">Client</p>
+                              <p className="font-bold text-lg text-foreground">{apt.clientName}</p>
                             </div>
                             <div>
-                              <span className="text-muted-foreground">Agent:</span>
-                              <p className="font-bold text-foreground">{apt.agentName}</p>
+                              <p className="text-xs text-muted-foreground font-semibold uppercase">Agent</p>
+                              <p className="font-bold text-lg text-foreground">{apt.agentName}</p>
                             </div>
                             <div>
-                              <span className="text-muted-foreground">Phone:</span>
-                              <p className="font-bold text-foreground">{apt.phoneNumber}</p>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Email:</span>
-                              <p className="font-bold text-foreground">{apt.email}</p>
+                              <p className="text-xs text-muted-foreground font-semibold uppercase">Phone</p>
+                              <p className="font-bold text-lg text-accent cursor-pointer hover:underline" onClick={() => navigator.clipboard.writeText(apt.phoneNumber)}>
+                                {apt.phoneNumber}
+                              </p>
                             </div>
                           </div>
-                          {apt.additionalInfo && (
-                            <div className="mt-2 text-sm text-muted-foreground">
-                              <span>Notes:</span>
-                              <p className="text-foreground">{apt.additionalInfo}</p>
+                          <div className="grid grid-cols-2 gap-3 text-sm">
+                            {apt.appointmentType && (
+                              <div>
+                                <span className="text-muted-foreground">Type:</span>
+                                <p className="font-bold text-foreground">{apt.appointmentType}</p>
+                              </div>
+                            )}
+                            {apt.location && (
+                              <div>
+                                <span className="text-muted-foreground">Location:</span>
+                                <p className="font-bold text-foreground">{apt.location}</p>
+                              </div>
+                            )}
+                          </div>
+                          {apt.notes && (
+                            <div className="mt-3 text-sm text-muted-foreground bg-background rounded px-3 py-2">
+                              <span className="font-semibold">Notes:</span>
+                              <p className="text-foreground">{apt.notes}</p>
                             </div>
                           )}
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-col gap-2">
                           {apt.status === 'pending' && (
                             <>
                               <button
                                 onClick={() => handleEditAppointment(apt)}
-                                className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold transition-smooth"
+                                className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold transition-smooth whitespace-nowrap"
                               >
                                 Edit
                               </button>
                               <button
                                 onClick={() => handleCompleteAppointment(apt.id)}
-                                className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold transition-smooth"
+                                className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold transition-smooth whitespace-nowrap"
                               >
-                                ✓
+                                ✓ Complete
                               </button>
                             </>
                           )}
                           <button
                             onClick={() => handleDeleteAppointment(apt.id)}
-                            className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-bold transition-smooth"
+                            className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-bold transition-smooth whitespace-nowrap"
                           >
                             Delete
                           </button>
@@ -440,26 +466,41 @@ export default function CalendarPage() {
               {todayAppointments.length > 0 ? (
                 <div className="space-y-3">
                   {todayAppointments.map(apt => (
-                    <div key={apt.id} className="bg-accent/10 border border-accent rounded-lg p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-lg font-bold text-accent">{apt.time}</span>
-                        <span className="text-xs bg-accent text-primary-foreground px-2 py-1 rounded">Pending</span>
+                    <div key={apt.id} className="bg-accent/10 border border-accent rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <div className="text-lg font-bold text-accent">{apt.time}</div>
+                          <div className="text-xs text-muted-foreground">{apt.duration} min</div>
+                        </div>
+                        <span className="text-xs bg-accent text-primary-foreground px-2 py-1 rounded-full font-bold">Pending</span>
                       </div>
-                      <div className="text-sm">
-                        <p className="font-bold text-foreground">{apt.clientName}</p>
-                        <p className="text-xs text-muted-foreground">{apt.agentName}</p>
-                        <p className="text-xs text-muted-foreground">{apt.phoneNumber}</p>
+                      <div className="mb-3 pb-3 border-b border-accent/30">
+                        <p className="font-bold text-lg text-foreground">{apt.clientName}</p>
+                        <p className="text-sm text-accent font-semibold">{apt.agentName}</p>
+                        <p className="text-sm text-muted-foreground cursor-pointer hover:text-accent transition-colors" onClick={() => navigator.clipboard.writeText(apt.phoneNumber)}>
+                          📱 {apt.phoneNumber}
+                        </p>
                       </div>
-                      <div className="mt-2 pt-2 border-t border-accent/30 flex gap-2">
+                      {apt.appointmentType && (
+                        <p className="text-xs text-muted-foreground mb-2">
+                          <span className="font-semibold">Type:</span> {apt.appointmentType}
+                        </p>
+                      )}
+                      {apt.location && (
+                        <p className="text-xs text-muted-foreground mb-3">
+                          <span className="font-semibold">📍 Location:</span> {apt.location}
+                        </p>
+                      )}
+                      <div className="flex gap-2">
                         <button
                           onClick={() => handleEditAppointment(apt)}
-                          className="flex-1 px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold transition-smooth"
+                          className="flex-1 px-2 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold transition-smooth"
                         >
                           Edit
                         </button>
                         <button
                           onClick={() => handleCompleteAppointment(apt.id)}
-                          className="flex-1 px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-bold transition-smooth"
+                          className="flex-1 px-2 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-bold transition-smooth"
                         >
                           Complete
                         </button>
@@ -498,17 +539,18 @@ export default function CalendarPage() {
       {/* Add/Edit Appointment Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-2xl shadow-2xl p-8 max-w-2xl w-full max-h-96 overflow-y-auto">
-            <h2 className="text-2xl font-bold text-foreground mb-6">
+          <div className="bg-card border border-border rounded-2xl shadow-2xl p-8 max-w-4xl w-full h-auto max-h-[90vh] overflow-y-auto">
+            <h2 className="text-3xl font-bold text-foreground mb-8 sticky top-0 bg-card">
               {editingId ? '✏️ Edit Appointment' : '📝 New Appointment'}
             </h2>
 
-            <div className="space-y-4 mb-6">
+            <div className="grid grid-cols-2 gap-6 mb-8">
               {/* Date */}
               <div>
                 <label className="block text-sm font-semibold text-foreground mb-2">Date *</label>
                 <input
                   type="date"
+                  autoFocus
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
                   className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
@@ -527,11 +569,11 @@ export default function CalendarPage() {
               </div>
 
               {/* Client Name */}
-              <div>
-                <label className="block text-sm font-semibold text-foreground mb-2">Client Name *</label>
+              <div className="col-span-2">
+                <label className="block text-sm font-semibold text-foreground mb-2">Full Name (Client) *</label>
                 <input
                   type="text"
-                  placeholder="Enter client name"
+                  placeholder="John Smith"
                   value={formData.clientName}
                   onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
                   className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
@@ -539,11 +581,11 @@ export default function CalendarPage() {
               </div>
 
               {/* Agent Name */}
-              <div>
+              <div className="col-span-2">
                 <label className="block text-sm font-semibold text-foreground mb-2">Agent Name *</label>
                 <input
                   type="text"
-                  placeholder="Enter agent name"
+                  placeholder="Agent Name"
                   value={formData.agentName}
                   onChange={(e) => setFormData({ ...formData, agentName: e.target.value })}
                   className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
@@ -551,44 +593,75 @@ export default function CalendarPage() {
               </div>
 
               {/* Phone Number */}
-              <div>
+              <div className="col-span-2">
                 <label className="block text-sm font-semibold text-foreground mb-2">Phone Number *</label>
                 <input
                   type="tel"
-                  placeholder="Enter phone number"
+                  placeholder="+49 1234 567890"
                   value={formData.phoneNumber}
                   onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
                   className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
                 />
               </div>
 
-              {/* Email */}
+              {/* Appointment Type */}
               <div>
-                <label className="block text-sm font-semibold text-foreground mb-2">Email Address *</label>
+                <label className="block text-sm font-semibold text-foreground mb-2">Appointment Type</label>
+                <select
+                  value={formData.appointmentType}
+                  onChange={(e) => setFormData({ ...formData, appointmentType: e.target.value })}
+                  className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
+                >
+                  <option value="Consultation">Consultation</option>
+                  <option value="Demo">Demo</option>
+                  <option value="Follow-up">Follow-up</option>
+                  <option value="Sales Call">Sales Call</option>
+                  <option value="Support">Support</option>
+                  <option value="Meeting">Meeting</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              {/* Duration */}
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-2">Duration (minutes)</label>
                 <input
-                  type="email"
-                  placeholder="Enter email address"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  type="number"
+                  min="15"
+                  step="15"
+                  value={formData.duration}
+                  onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) || 30 })}
                   className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
                 />
               </div>
 
-              {/* Additional Information */}
-              <div>
-                <label className="block text-sm font-semibold text-foreground mb-2">Additional Information</label>
+              {/* Location */}
+              <div className="col-span-2">
+                <label className="block text-sm font-semibold text-foreground mb-2">Location</label>
+                <input
+                  type="text"
+                  placeholder="Berlin Office, Video Call, etc."
+                  value={formData.location}
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
+                />
+              </div>
+
+              {/* Notes */}
+              <div className="col-span-2">
+                <label className="block text-sm font-semibold text-foreground mb-2">Notes / Additional Details</label>
                 <textarea
-                  placeholder="Add notes or additional details..."
-                  value={formData.additionalInfo}
-                  onChange={(e) => setFormData({ ...formData, additionalInfo: e.target.value })}
+                  placeholder="Add any notes about this appointment..."
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground resize-none"
-                  rows={3}
+                  rows={4}
                 />
               </div>
             </div>
 
             {/* Buttons */}
-            <div className="flex gap-3">
+            <div className="flex gap-3 sticky bottom-0 bg-card pt-6">
               <button
                 onClick={() => {
                   setShowAddModal(false);
