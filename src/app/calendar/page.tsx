@@ -96,6 +96,9 @@ export default function CalendarPage() {
       .filter(apt => apt.date === date && apt.status === 'pending')
       .map(apt => apt.time);
   };
+
+  // Get calendar days
+  const getCalendarDays = (): CalendarDay[] => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     
