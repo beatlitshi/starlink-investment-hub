@@ -3,7 +3,6 @@ import type { Metadata, Viewport } from 'next';
 import '@/styles/index.css';
 import { AdminAuthProvider } from '@/contexts/AdminAuthContext';
 import { UserAuthProvider } from '@/contexts/UserAuthContext';
-import ErrorTracker from '@/components/ErrorTracker';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -31,7 +30,6 @@ export default function RootLayout({
         <AdminAuthProvider>
           <UserAuthProvider>
             {children}
-            <ErrorTracker />
           </UserAuthProvider>
         </AdminAuthProvider>
       </body>
