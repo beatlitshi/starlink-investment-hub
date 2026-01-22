@@ -8,9 +8,6 @@ interface Appointment {
   clientName: string;
   agentName: string;
   phoneNumber: string;
-  appointmentType: string;
-  duration: number; // in minutes
-  location: string;
   date: string;
   time: string;
   notes: string;
@@ -36,9 +33,6 @@ export default function CalendarPage() {
     clientName: '',
     agentName: '',
     phoneNumber: '',
-    appointmentType: 'Consultation',
-    duration: 30,
-    location: '',
     time: '09:00',
     notes: '',
   });
@@ -73,8 +67,35 @@ export default function CalendarPage() {
       .sort((a, b) => a.time.localeCompare(b.time));
   };
 
-  // Get calendar days
-  const getCalendarDays = (): CalendarDay[] => {
+  // Generate time slots from 09:00 to 18:00 in 15-minute intervals
+  const getTimeSlots = () => {
+    const slots = [];
+    for (let hour = 9; hour <= 18; hour++) {
+      for (let minute = 0; minute < 60; minute += 15) {
+        if (hour === 18 && minute > 0) break; // Stop at 18:00
+        const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+        slots.push(timeStr);
+      }
+    }
+    return slots;
+  };
+
+  // Check if time slot is available
+  const isTimeSlotAvailable = (date: string, time: string, excludeId?: string) => {
+    return !appointments.some(apt => 
+      apt.date === date && 
+      apt.time === time && 
+      apt.status === 'pending' &&
+      apt.id !== excludeId
+    );
+  };
+
+  // Get booked times for a date
+  const getBookedTimes = (date: string) => {
+    return appointments
+      .filter(apt => apt.date === date && apt.status === 'pending')
+      .map(apt => apt.time);
+  };
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     
@@ -137,8 +158,14 @@ export default function CalendarPage() {
 
   // Add or update appointment
   const handleSaveAppointment = () => {
-    if (!selectedDate || !formData.clientName || !formData.agentName || !formData.phoneNumber) {
-      alert('Please fill in all required fields (Name, Agent, Phone)');
+    if (!selectedDate || !formData.clientName || !formData.agentName || !formData.phoneNumber || !formData.time) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    // Check for time slot availability
+    if (!isTimeSlotAvailable(selectedDate, formData.time, editingId)) {
+      alert(`⚠️ This time slot is already booked. Please choose another time.`);
       return;
     }
 
@@ -162,9 +189,6 @@ export default function CalendarPage() {
       clientName: '',
       agentName: '',
       phoneNumber: '',
-      appointmentType: 'Consultation',
-      duration: 30,
-      location: '',
       time: '09:00',
       notes: '',
     });
@@ -185,9 +209,6 @@ export default function CalendarPage() {
       clientName: apt.clientName,
       agentName: apt.agentName,
       phoneNumber: apt.phoneNumber,
-      appointmentType: apt.appointmentType,
-      duration: apt.duration,
-      location: apt.location,
       time: apt.time,
       notes: apt.notes,
     });
@@ -226,16 +247,14 @@ export default function CalendarPage() {
             </div>
             <button
               onClick={() => {
+                const today = getTodayString();
                 setShowAddModal(true);
-                setSelectedDate(getTodayString());
+                setSelectedDate(today);
                 setEditingId(null);
                 setFormData({
                   clientName: '',
                   agentName: '',
                   phoneNumber: '',
-                  appointmentType: 'Consultation',
-                  duration: 30,
-                  location: '',
                   time: '09:00',
                   notes: '',
                 });
@@ -291,6 +310,7 @@ export default function CalendarPage() {
                   const dateStr = day.date.toISOString().split('T')[0];
                   const isToday = dateStr === todayString;
                   const hasAppointments = day.appointments.length > 0;
+                  const appointmentCount = day.appointments.length;
 
                   return (
                     <button
@@ -303,14 +323,11 @@ export default function CalendarPage() {
                           clientName: '',
                           agentName: '',
                           phoneNumber: '',
-                          appointmentType: 'Consultation',
-                          duration: 30,
-                          location: '',
                           time: '09:00',
                           notes: '',
                         });
                       }}
-                      className={`min-h-28 p-2 rounded-lg border-2 transition-smooth cursor-pointer ${
+                      className={`min-h-32 p-2 rounded-lg border-2 transition-smooth cursor-pointer overflow-hidden flex flex-col ${
                         isToday
                           ? 'bg-primary/20 border-primary'
                           : day.isCurrentMonth
@@ -318,20 +335,27 @@ export default function CalendarPage() {
                           : 'bg-muted border-border opacity-50'
                       }`}
                     >
-                      <div className={`text-sm font-bold mb-1 ${isToday ? 'text-primary' : day.isCurrentMonth ? 'text-foreground' : 'text-muted-foreground'}`}>
-                        {day.date.getDate()}
+                      <div className="flex justify-between items-center mb-2">
+                        <div className={`text-sm font-bold ${isToday ? 'text-primary' : day.isCurrentMonth ? 'text-foreground' : 'text-muted-foreground'}`}>
+                          {day.date.getDate()}
+                        </div>
+                        {appointmentCount > 0 && (
+                          <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+                            isToday ? 'bg-primary/50 text-primary-foreground' : 'bg-accent/50 text-accent'
+                          }`}>
+                            {appointmentCount}
+                          </span>
+                        )}
                       </div>
+
                       {hasAppointments && (
-                        <div className="space-y-1">
-                          {day.appointments.slice(0, 2).map((apt, i) => (
-                            <div key={i} className="text-xs bg-accent/20 text-accent rounded px-1 py-0.5 truncate">
-                              <div className="font-bold truncate">{apt.clientName}</div>
-                              <div className="text-xs text-muted-foreground">{apt.agentName.split(' ')[0]} • {apt.time}</div>
+                        <div className="space-y-1 overflow-y-auto flex-1 text-xs">
+                          {day.appointments.map((apt, i) => (
+                            <div key={i} className="bg-accent/30 text-accent rounded px-1.5 py-1 border border-accent/50 truncate">
+                              <div className="font-bold truncate text-xs">{apt.clientName}</div>
+                              <div className="text-xs text-muted-foreground truncate">{apt.agentName} • {apt.time}</div>
                             </div>
                           ))}
-                          {day.appointments.length > 2 && (
-                            <div className="text-xs text-muted-foreground font-bold">+{day.appointments.length - 2} more</div>
-                          )}
                         </div>
                       )}
                     </button>
@@ -392,20 +416,6 @@ export default function CalendarPage() {
                                 {apt.phoneNumber}
                               </p>
                             </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-3 text-sm">
-                            {apt.appointmentType && (
-                              <div>
-                                <span className="text-muted-foreground">Type:</span>
-                                <p className="font-bold text-foreground">{apt.appointmentType}</p>
-                              </div>
-                            )}
-                            {apt.location && (
-                              <div>
-                                <span className="text-muted-foreground">Location:</span>
-                                <p className="font-bold text-foreground">{apt.location}</p>
-                              </div>
-                            )}
                           </div>
                           {apt.notes && (
                             <div className="mt-3 text-sm text-muted-foreground bg-background rounded px-3 py-2">
@@ -481,16 +491,6 @@ export default function CalendarPage() {
                           📱 {apt.phoneNumber}
                         </p>
                       </div>
-                      {apt.appointmentType && (
-                        <p className="text-xs text-muted-foreground mb-2">
-                          <span className="font-semibold">Type:</span> {apt.appointmentType}
-                        </p>
-                      )}
-                      {apt.location && (
-                        <p className="text-xs text-muted-foreground mb-3">
-                          <span className="font-semibold">📍 Location:</span> {apt.location}
-                        </p>
-                      )}
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleEditAppointment(apt)}
@@ -545,27 +545,42 @@ export default function CalendarPage() {
             </h2>
 
             <div className="grid grid-cols-2 gap-6 mb-8">
-              {/* Date */}
-              <div>
-                <label className="block text-sm font-semibold text-foreground mb-2">Date *</label>
-                <input
-                  type="date"
-                  autoFocus
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
-                />
-              </div>
+                        <div className="bg-muted rounded-lg p-3 border border-border">
+                          <p className="text-xs text-muted-foreground font-semibold uppercase mb-2">📅 Selected Date</p>
+                          <p className="text-lg font-bold text-foreground">{new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                        </div>
 
-              {/* Time */}
-              <div>
-                <label className="block text-sm font-semibold text-foreground mb-2">Time *</label>
-                <input
-                  type="time"
-                  value={formData.time}
-                  onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                  className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
-                />
+              {/* Time Selection - Easy Dropdown */}
+              <div className="col-span-2">
+                <label className="block text-sm font-semibold text-foreground mb-3">⏰ Select Time *</label>
+                <div className="grid grid-cols-5 gap-2 max-h-60 overflow-y-auto bg-background border border-border rounded-lg p-3">
+                  {getTimeSlots().map(time => {
+                    const isBooked = !isTimeSlotAvailable(selectedDate, time, editingId);
+                    const isSelected = formData.time === time;
+                    return (
+                      <button
+                        key={time}
+                        onClick={() => {
+                          if (!isBooked || editingId) {
+                            setFormData({ ...formData, time });
+                          }
+                        }}
+                        disabled={isBooked && !editingId}
+                        className={`py-2 px-2 rounded-lg font-bold text-sm transition-all ${
+                          isSelected
+                            ? 'bg-primary text-primary-foreground ring-2 ring-primary'
+                            : isBooked
+                            ? 'bg-red-900/40 text-red-400 cursor-not-allowed opacity-50'
+                            : 'bg-muted hover:bg-muted/80 text-foreground cursor-pointer'
+                        }`}
+                      >
+                        <div className="text-xs">{time}</div>
+                        {isBooked && <div className="text-xs">✓ Booked</div>}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">Appointments from 09:00 to 18:00 (15 min intervals)</p>
               </div>
 
               {/* Client Name */}
@@ -644,18 +659,6 @@ export default function CalendarPage() {
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                   className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
-                />
-              </div>
-
-              {/* Notes */}
-              <div className="col-span-2">
-                <label className="block text-sm font-semibold text-foreground mb-2">Notes / Additional Details</label>
-                <textarea
-                  placeholder="Add any notes about this appointment..."
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground resize-none"
-                  rows={4}
                 />
               </div>
             </div>
