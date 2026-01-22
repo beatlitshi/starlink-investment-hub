@@ -399,7 +399,6 @@ export default function CalendarPage() {
                             </span>
                             <span className="text-sm font-bold text-foreground">{apt.date}</span>
                             <span className="text-sm font-bold text-accent">{apt.time}</span>
-                            {apt.duration && <span className="text-xs text-muted-foreground">({apt.duration} min)</span>}
                           </div>
                           <div className="grid grid-cols-3 gap-3 mb-3">
                             <div>
@@ -480,7 +479,6 @@ export default function CalendarPage() {
                       <div className="flex items-center justify-between mb-3">
                         <div>
                           <div className="text-lg font-bold text-accent">{apt.time}</div>
-                          <div className="text-xs text-muted-foreground">{apt.duration} min</div>
                         </div>
                         <span className="text-xs bg-accent text-primary-foreground px-2 py-1 rounded-full font-bold">Pending</span>
                       </div>
@@ -545,121 +543,90 @@ export default function CalendarPage() {
             </h2>
 
             <div className="grid grid-cols-2 gap-6 mb-8">
-                        <div className="bg-muted rounded-lg p-3 border border-border">
-                          <p className="text-xs text-muted-foreground font-semibold uppercase mb-2">📅 Selected Date</p>
-                          <p className="text-lg font-bold text-foreground">{new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                        </div>
-
-              {/* Time Selection - Easy Dropdown */}
-              <div className="col-span-2">
-                <label className="block text-sm font-semibold text-foreground mb-3">⏰ Select Time *</label>
-                <div className="grid grid-cols-5 gap-2 max-h-60 overflow-y-auto bg-background border border-border rounded-lg p-3">
-                  {getTimeSlots().map(time => {
-                    const isBooked = !isTimeSlotAvailable(selectedDate, time, editingId);
-                    const isSelected = formData.time === time;
-                    return (
-                      <button
-                        key={time}
-                        onClick={() => {
-                          if (!isBooked || editingId) {
-                            setFormData({ ...formData, time });
-                          }
-                        }}
-                        disabled={isBooked && !editingId}
-                        className={`py-2 px-2 rounded-lg font-bold text-sm transition-all ${
-                          isSelected
-                            ? 'bg-primary text-primary-foreground ring-2 ring-primary'
-                            : isBooked
-                            ? 'bg-red-900/40 text-red-400 cursor-not-allowed opacity-50'
-                            : 'bg-muted hover:bg-muted/80 text-foreground cursor-pointer'
-                        }`}
-                      >
-                        <div className="text-xs">{time}</div>
-                        {isBooked && <div className="text-xs">✓ Booked</div>}
-                      </button>
-                    );
-                  })}
+                {/* Selected Date Display */}
+                <div className="bg-muted rounded-lg p-3 border border-border col-span-2">
+                  <p className="text-xs text-muted-foreground font-semibold uppercase mb-2">📅 Selected Date</p>
+                  <p className="text-lg font-bold text-foreground">{new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">Appointments from 09:00 to 18:00 (15 min intervals)</p>
-              </div>
 
-              {/* Client Name */}
-              <div className="col-span-2">
-                <label className="block text-sm font-semibold text-foreground mb-2">Full Name (Client) *</label>
-                <input
-                  type="text"
-                  placeholder="John Smith"
-                  value={formData.clientName}
-                  onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
-                  className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
-                />
-              </div>
+                {/* Time Selection - Easy Grid */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-semibold text-foreground mb-3">⏰ Select Time *</label>
+                  <div className="grid grid-cols-5 gap-2 max-h-60 overflow-y-auto bg-background border border-border rounded-lg p-3">
+                    {getTimeSlots().map(time => {
+                      const isBooked = !isTimeSlotAvailable(selectedDate, time, editingId);
+                      const isSelected = formData.time === time;
+                      return (
+                        <button
+                          key={time}
+                          onClick={() => {
+                            if (!isBooked || editingId) {
+                              setFormData({ ...formData, time });
+                            }
+                          }}
+                          disabled={isBooked && !editingId}
+                          className={`py-2 px-2 rounded-lg font-bold text-sm transition-all ${
+                            isSelected
+                              ? 'bg-primary text-primary-foreground ring-2 ring-primary'
+                              : isBooked
+                              ? 'bg-red-900/40 text-red-400 cursor-not-allowed opacity-50'
+                              : 'bg-muted hover:bg-muted/80 text-foreground cursor-pointer'
+                          }`}
+                        >
+                          <div className="text-xs">{time}</div>
+                          {isBooked && <div className="text-xs">✓ Booked</div>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">Appointments from 09:00 to 18:00 (15 min intervals)</p>
+                </div>
 
-              {/* Agent Name */}
-              <div className="col-span-2">
-                <label className="block text-sm font-semibold text-foreground mb-2">Agent Name *</label>
-                <input
-                  type="text"
-                  placeholder="Agent Name"
-                  value={formData.agentName}
-                  onChange={(e) => setFormData({ ...formData, agentName: e.target.value })}
-                  className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
-                />
-              </div>
+                {/* Client Name */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-semibold text-foreground mb-2">Full Name (Client) *</label>
+                  <input
+                    type="text"
+                    placeholder="John Smith"
+                    value={formData.clientName}
+                    onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
+                    className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
+                  />
+                </div>
 
-              {/* Phone Number */}
-              <div className="col-span-2">
-                <label className="block text-sm font-semibold text-foreground mb-2">Phone Number *</label>
-                <input
-                  type="tel"
-                  placeholder="+49 1234 567890"
-                  value={formData.phoneNumber}
-                  onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-                  className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
-                />
-              </div>
+                {/* Agent Name */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-semibold text-foreground mb-2">Agent Name *</label>
+                  <input
+                    type="text"
+                    placeholder="Agent Name"
+                    value={formData.agentName}
+                    onChange={(e) => setFormData({ ...formData, agentName: e.target.value })}
+                    className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
+                  />
+                </div>
 
-              {/* Appointment Type */}
-              <div>
-                <label className="block text-sm font-semibold text-foreground mb-2">Appointment Type</label>
-                <select
-                  value={formData.appointmentType}
-                  onChange={(e) => setFormData({ ...formData, appointmentType: e.target.value })}
-                  className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
-                >
-                  <option value="Consultation">Consultation</option>
-                  <option value="Demo">Demo</option>
-                  <option value="Follow-up">Follow-up</option>
-                  <option value="Sales Call">Sales Call</option>
-                  <option value="Support">Support</option>
-                  <option value="Meeting">Meeting</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
+                {/* Phone Number */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-semibold text-foreground mb-2">Phone Number *</label>
+                  <input
+                    type="tel"
+                    placeholder="+49 1234 567890"
+                    value={formData.phoneNumber}
+                    onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                    className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
+                  />
+                </div>
 
-              {/* Duration */}
-              <div>
-                <label className="block text-sm font-semibold text-foreground mb-2">Duration (minutes)</label>
-                <input
-                  type="number"
-                  min="15"
-                  step="15"
-                  value={formData.duration}
-                  onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) || 30 })}
-                  className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
-                />
-              </div>
-
-              {/* Location */}
-              <div className="col-span-2">
-                <label className="block text-sm font-semibold text-foreground mb-2">Location</label>
-                <input
-                  type="text"
-                  placeholder="Berlin Office, Video Call, etc."
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
-                />
+                {/* Notes */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-semibold text-foreground mb-2">Notes / Additional Details</label>
+                  <textarea
+                    placeholder="Add any notes about this appointment..."
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground resize-none"
+                    rows={3}
               </div>
             </div>
 
