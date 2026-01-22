@@ -7,254 +7,427 @@ interface Satellite {
   id: string;
   x: number;
   y: number;
+  product: StarlinkProduct;
 }
 
-export default function SatelliteClickerGame() {
-  const [earnings, setEarnings] = useState(0);
-  const [clicks, setClicks] = useState(0);
+interface StarlinkProduct {
+  id: string;
+  name: string;
+  price: number;
+  commission: number; // percentage
+  image: string;
+}
+
+interface TeamMember {
+  id: string;
+  name: string;
+  salesCount: number;
+  totalEarnings: number;
+  level: number;
+}
+
+const STARLINK_PRODUCTS: StarlinkProduct[] = [
+  {
+    id: 'mini',
+    name: 'Starlink Mini',
+    price: 599,
+    commission: 0.015, // €0.015 per click/sale
+    image: '📡',
+  },
+  {
+    id: 'standard',
+    name: 'Starlink Standard',
+    price: 899,
+    commission: 0.025,
+    image: '🛰️',
+  },
+  {
+    id: 'pro',
+    name: 'Starlink Pro',
+    price: 2499,
+    commission: 0.045,
+    image: '✨',
+  },
+  {
+    id: 'business',
+    name: 'Starlink Business',
+    price: 5000,
+    commission: 0.08,
+    image: '💼',
+  },
+  {
+    id: 'enterprise',
+    name: 'Starlink Enterprise',
+    price: 15000,
+    commission: 0.15,
+    image: '🏢',
+  },
+];
+
+export default function StarlinkAffiliateGame() {
+  const [balance, setBalance] = useState(0);
+  const [depositAmount, setDepositAmount] = useState(0);
+  const [totalEarnings, setTotalEarnings] = useState(0);
+  const [totalSales, setTotalSales] = useState(0);
   const [satellites, setSatellites] = useState<Satellite[]>([]);
-  const [autoClickLevel, setAutoClickLevel] = useState(0);
-  const [perClickEarning, setPerClickEarning] = useState(2.50); // €2.50 per click
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [conversionRate, setConversionRate] = useState(2.5); // 2.5%
+  const [monthlyRevenue, setMonthlyRevenue] = useState(0);
+  const [activeBoosts, setActiveBoosts] = useState(0);
+  const [playerLevel, setPlayerLevel] = useState(1);
   const containerRef = useRef<HTMLDivElement>(null);
   const autoClickIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Auto-click feature
-  useEffect(() => {
-    if (autoClickLevel > 0) {
-      autoClickIntervalRef.current = setInterval(() => {
-        setEarnings(prev => prev + (perClickEarning * autoClickLevel));
-        setClicks(prev => prev + autoClickLevel);
-      }, 1000); // Click every second
+  // Deposit to boost earnings
+  const handleDeposit = (amount: number) => {
+    if (amount > 0) {
+      setDepositAmount(prev => prev + amount);
+      // Deposit gives you starting capital and boost
+      setBalance(prev => prev + amount);
+      setActiveBoosts(prev => prev + 1);
     }
-    return () => {
-      if (autoClickIntervalRef.current) clearInterval(autoClickIntervalRef.current);
-    };
-  }, [autoClickLevel, perClickEarning]);
+  };
 
-  const handleSatelliteClick = (satelliteId: string) => {
-    // Add earnings
-    setEarnings(prev => prev + perClickEarning);
-    setClicks(prev => prev + 1);
+  // Calculate commission based on deposit leverage
+  const getCommission = (baseCommission: number): number => {
+    const leverageMultiplier = depositAmount > 0 ? 1 + (depositAmount / 10000) : 1;
+    return baseCommission * leverageMultiplier;
+  };
 
-    // Remove satellite
-    setSatellites(prev => prev.filter(s => s.id !== satelliteId));
+  // Simulate sales with skill challenge
+  const handleSaleClick = (product: StarlinkProduct) => {
+    // Skill check: 70% success rate
+    if (Math.random() > 0.3) {
+      const commission = getCommission(product.commission);
+      setBalance(prev => prev + commission);
+      setTotalEarnings(prev => prev + commission);
+      setTotalSales(prev => prev + 1);
 
-    // Create floating text effect
-    const newSat = satellites.find(s => s.id === satelliteId);
-    if (newSat) {
-      const floatingText = document.createElement('div');
-      floatingText.textContent = `+€${perClickEarning.toFixed(2)}`;
-      floatingText.style.position = 'fixed';
-      floatingText.style.left = `${newSat.x}px`;
-      floatingText.style.top = `${newSat.y}px`;
-      floatingText.style.fontSize = '24px';
-      floatingText.style.fontWeight = 'bold';
-      floatingText.style.color = '#22c55e';
-      floatingText.style.pointerEvents = 'none';
-      floatingText.style.zIndex = '50';
-      floatingText.style.animation = 'floatUp 1s ease-out forwards';
-      
-      document.body.appendChild(floatingText);
-      setTimeout(() => floatingText.remove(), 1000);
+      // Add to monthly revenue
+      setMonthlyRevenue(prev => prev + commission);
+
+      // Remove satellite
+      setSatellites(prev => prev.filter(s => s.id !== s.id));
+
+      // Spawn new one
+      spawnSatellite();
+
+      // Floating text
+      const newSat = satellites.find(s => s.id === s.id);
+      if (newSat) {
+        const floatingText = document.createElement('div');
+        floatingText.textContent = `+€${commission.toFixed(4)}`;
+        floatingText.style.position = 'fixed';
+        floatingText.style.left = `${newSat.x}px`;
+        floatingText.style.top = `${newSat.y}px`;
+        floatingText.style.fontSize = '20px';
+        floatingText.style.fontWeight = 'bold';
+        floatingText.style.color = '#10b981';
+        floatingText.style.pointerEvents = 'none';
+        floatingText.style.zIndex = '50';
+        floatingText.style.animation = 'floatUp 1s ease-out forwards';
+        
+        document.body.appendChild(floatingText);
+        setTimeout(() => floatingText.remove(), 1000);
+      }
+
+      // Upgrade level every 20 sales
+      if (totalSales % 20 === 0) {
+        setPlayerLevel(prev => prev + 1);
+      }
     }
-
-    // Spawn new satellite
-    spawnSatellite();
   };
 
   const spawnSatellite = () => {
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
+      const product = STARLINK_PRODUCTS[Math.floor(Math.random() * STARLINK_PRODUCTS.length)];
       const newSat: Satellite = {
         id: Math.random().toString(),
-        x: Math.random() * (rect.width - 100),
-        y: Math.random() * (rect.height - 100),
+        x: Math.random() * (rect.width - 120),
+        y: Math.random() * (rect.height - 120),
+        product,
       };
-      setSatellites(prev => [...prev, newSat]);
+      setSatellites(prev => [...prev.slice(-4), newSat]); // Max 5 on screen
     }
   };
 
-  const buyAutoClicker = () => {
-    const cost = 50 + autoClickLevel * 100;
-    if (earnings >= cost) {
-      setEarnings(prev => prev - cost);
-      setAutoClickLevel(prev => prev + 1);
+  const hireTeamMember = () => {
+    if (balance >= 500) {
+      setBalance(prev => prev - 500);
+      const newMember: TeamMember = {
+        id: Math.random().toString(),
+        name: `Sales Agent ${teamMembers.length + 1}`,
+        salesCount: 0,
+        totalEarnings: 0,
+        level: 1,
+      };
+      setTeamMembers(prev => [...prev, newMember]);
+
+      // Team members auto-generate sales
+      const interval = setInterval(() => {
+        if (Math.random() > 0.6) { // 40% chance per interval
+          const product = STARLINK_PRODUCTS[Math.floor(Math.random() * STARLINK_PRODUCTS.length)];
+          const commission = getCommission(product.commission) * 0.7; // Team gets 70% of normal
+          setBalance(prev => prev + commission);
+          setTotalEarnings(prev => prev + commission);
+          setTotalSales(prev => prev + 1);
+          setMonthlyRevenue(prev => prev + commission);
+
+          setTeamMembers(prev => prev.map(m => 
+            m.id === newMember.id 
+              ? { ...m, salesCount: m.salesCount + 1, totalEarnings: m.totalEarnings + commission }
+              : m
+          ));
+        }
+      }, 3000);
+
+      return () => clearInterval(interval);
     }
   };
 
-  const buyMultiplier = () => {
-    const cost = 200;
-    if (earnings >= cost) {
-      setEarnings(prev => prev - cost);
-      setPerClickEarning(prev => prev * 1.5); // 50% increase
+  const buyMarketingCampaign = () => {
+    if (balance >= 1000) {
+      setBalance(prev => prev - 1000);
+      setConversionRate(prev => Math.min(prev + 5, 50)); // Max 50% conversion
+      
+      setTimeout(() => {
+        setConversionRate(prev => Math.max(prev - 5, 2.5)); // Decays after 30 seconds
+      }, 30000);
     }
   };
 
-  // Initialize with first satellite
+  // Initialize
   useEffect(() => {
-    spawnSatellite();
+    for (let i = 0; i < 3; i++) {
+      spawnSatellite();
+    }
   }, []);
 
+  // Monthly revenue reset
+  useEffect(() => {
+    const monthlyReset = setInterval(() => {
+      setMonthlyRevenue(0);
+    }, 30000); // Reset every 30 seconds for demo
+
+    return () => clearInterval(monthlyReset);
+  }, []);
+
+  const conversionValue = (totalSales * conversionRate / 100).toFixed(0);
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 overflow-hidden">
       {/* Header */}
-      <div className="fixed top-0 left-0 right-0 bg-slate-900/95 backdrop-blur border-b border-slate-700 z-40 p-4">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-white flex items-center gap-2">
-              <Icon name="SparklesIcon" className="text-yellow-500 h-8 w-8" />
-              Starlink Satellite Clicker
+      <div className="fixed top-0 left-0 right-0 bg-slate-950/95 backdrop-blur border-b border-slate-700 z-40">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-4xl font-bold text-white flex items-center gap-3">
+              <span className="text-4xl">🛰️</span>
+              Starlink Affiliate Business
+              <span className="text-sm bg-green-900 text-green-300 px-3 py-1 rounded-full">Level {playerLevel}</span>
             </h1>
-            <p className="text-slate-400 text-sm">Click satellites to earn commission & win real money!</p>
+            <div className="text-right">
+              <div className="text-4xl font-bold text-green-400">€{balance.toFixed(4)}</div>
+              <div className="text-slate-400 text-sm">Current Balance</div>
+            </div>
           </div>
-          <div className="text-right">
-            <div className="text-4xl font-bold text-green-400">€{earnings.toFixed(2)}</div>
-            <div className="text-slate-400">Total Earnings</div>
+          
+          {/* Quick stats */}
+          <div className="grid grid-cols-6 gap-3 text-center text-sm">
+            <div className="bg-slate-800 rounded px-2 py-1">
+              <div className="text-slate-400">Total Sales</div>
+              <div className="font-bold text-white">{totalSales}</div>
+            </div>
+            <div className="bg-slate-800 rounded px-2 py-1">
+              <div className="text-slate-400">Total Earnings</div>
+              <div className="font-bold text-green-400">€{totalEarnings.toFixed(4)}</div>
+            </div>
+            <div className="bg-slate-800 rounded px-2 py-1">
+              <div className="text-slate-400">Conversion Rate</div>
+              <div className="font-bold text-blue-400">{conversionRate.toFixed(1)}%</div>
+            </div>
+            <div className="bg-slate-800 rounded px-2 py-1">
+              <div className="text-slate-400">Monthly Revenue</div>
+              <div className="font-bold text-purple-400">€{monthlyRevenue.toFixed(4)}</div>
+            </div>
+            <div className="bg-slate-800 rounded px-2 py-1">
+              <div className="text-slate-400">Deposit Leverage</div>
+              <div className="font-bold text-yellow-400">x{(1 + depositAmount/10000).toFixed(2)}</div>
+            </div>
+            <div className="bg-slate-800 rounded px-2 py-1">
+              <div className="text-slate-400">Team Members</div>
+              <div className="font-bold text-pink-400">{teamMembers.length}</div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="pt-24 pb-8 px-4 flex gap-6 max-w-7xl mx-auto">
-        {/* Game Area */}
+      <div className="pt-48 pb-8 px-4 flex gap-6 max-w-7xl mx-auto">
+        {/* Main Game Area */}
         <div className="flex-1">
           <div
             ref={containerRef}
-            className="relative h-[600px] bg-gradient-to-b from-slate-800 to-slate-900 rounded-xl border-2 border-slate-700 overflow-hidden shadow-2xl"
+            className="relative h-[500px] bg-gradient-to-b from-slate-800 to-slate-900 rounded-xl border-2 border-slate-700 overflow-hidden shadow-2xl mb-4"
           >
-            {/* Background grid */}
-            <div className="absolute inset-0 opacity-10">
-              <div className="absolute inset-0" style={{
+            {/* Grid background */}
+            <div className="absolute inset-0 opacity-5">
+              <div style={{
                 backgroundImage: 'linear-gradient(0deg, transparent 24%, rgba(255,255,255,.05) 25%, rgba(255,255,255,.05) 26%, transparent 27%, transparent 74%, rgba(255,255,255,.05) 75%, rgba(255,255,255,.05) 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, rgba(255,255,255,.05) 25%, rgba(255,255,255,.05) 26%, transparent 27%, transparent 74%, rgba(255,255,255,.05) 75%, rgba(255,255,255,.05) 76%, transparent 77%, transparent)',
                 backgroundSize: '50px 50px'
-              }} />
+              }} className="w-full h-full" />
             </div>
 
-            {/* Satellites */}
+            {/* Products to sell */}
             {satellites.map((sat) => (
               <button
                 key={sat.id}
-                onClick={() => handleSatelliteClick(sat.id)}
-                className="absolute w-24 h-24 animate-pulse hover:scale-125 transition-transform active:scale-95 focus:outline-none group"
+                onClick={() => handleSaleClick(sat.product)}
+                className="absolute w-28 h-28 group focus:outline-none"
                 style={{
                   left: `${sat.x}px`,
                   top: `${sat.y}px`,
                 }}
               >
-                {/* Glow effect */}
-                <div className="absolute inset-0 bg-yellow-500 rounded-full blur-xl opacity-50 group-hover:opacity-100 transition-opacity" />
-                
-                {/* Satellite */}
-                <div className="relative w-full h-full flex items-center justify-center">
-                  <div className="absolute inset-0 border-2 border-yellow-400 rounded-full animate-spin" style={{ animationDuration: '3s' }} />
-                  <Icon name="SparklesIcon" className="w-12 h-12 text-yellow-400 z-10 drop-shadow-lg" />
-                </div>
-
-                {/* Click hint */}
-                <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap text-yellow-300 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">
-                  +€{perClickEarning.toFixed(2)}
+                <div className="relative w-full h-full flex flex-col items-center justify-center">
+                  {/* Glow */}
+                  <div className="absolute inset-0 bg-blue-500 rounded-lg blur-xl opacity-30 group-hover:opacity-60 transition-opacity" />
+                  
+                  {/* Product card */}
+                  <div className="relative bg-slate-900 border-2 border-slate-700 group-hover:border-blue-500 rounded-lg p-3 w-full h-full flex flex-col items-center justify-center transition-all group-hover:scale-110 group-active:scale-95">
+                    <div className="text-4xl mb-1">{sat.product.image}</div>
+                    <div className="text-xs font-bold text-white text-center line-clamp-1">{sat.product.name}</div>
+                    <div className="text-xs text-green-400 mt-1">+€{(getCommission(sat.product.commission)).toFixed(4)}</div>
+                  </div>
                 </div>
               </button>
             ))}
 
-            {/* Click counter */}
-            <div className="absolute bottom-4 left-4 bg-slate-900/80 backdrop-blur px-4 py-2 rounded-lg border border-slate-700">
-              <div className="text-slate-400 text-sm">Clicks</div>
-              <div className="text-2xl font-bold text-white">{clicks}</div>
-            </div>
-
-            {/* Per-click rate */}
-            <div className="absolute bottom-4 right-4 bg-slate-900/80 backdrop-blur px-4 py-2 rounded-lg border border-slate-700">
-              <div className="text-slate-400 text-sm">Per Click</div>
-              <div className="text-2xl font-bold text-green-400">€{perClickEarning.toFixed(2)}</div>
+            {/* Instructions */}
+            <div className="absolute top-4 left-4 bg-slate-900/80 backdrop-blur px-4 py-2 rounded-lg border border-slate-700">
+              <div className="text-slate-400 text-xs">💡 Click products to complete sales</div>
+              <div className="text-xs text-yellow-400 font-bold">70% success rate</div>
             </div>
           </div>
 
-          {/* Stats */}
-          <div className="mt-4 grid grid-cols-3 gap-4">
-            <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-              <div className="text-slate-400 text-sm">Average per Minute</div>
-              <div className="text-2xl font-bold text-white">€{((clicks / (clicks > 0 ? clicks : 1)) * 60 * perClickEarning).toFixed(2)}</div>
+          {/* Deposit Section */}
+          <div className="bg-slate-800 rounded-lg p-4 border border-slate-700 mb-4">
+            <h3 className="font-bold text-white mb-3 flex items-center gap-2">
+              <Icon name="CurrencyDollarIcon" className="text-green-500 h-5 w-5" />
+              Investment Capital (Boost Earnings)
+            </h3>
+            <div className="grid grid-cols-4 gap-2">
+              {[100, 500, 1000, 5000].map(amount => (
+                <button
+                  key={amount}
+                  onClick={() => handleDeposit(amount)}
+                  className="bg-green-900 hover:bg-green-800 text-green-300 py-2 rounded-lg font-bold transition-all"
+                >
+                  +€{amount}
+                </button>
+              ))}
             </div>
-            <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-              <div className="text-slate-400 text-sm">Auto-Clickers Active</div>
-              <div className="text-2xl font-bold text-blue-400">{autoClickLevel}</div>
+            <div className="mt-3 text-xs text-slate-400">
+              💰 Current Deposit: €{depositAmount.toFixed(2)} | Earning Multiplier: x{(1 + depositAmount/10000).toFixed(2)}
             </div>
-            <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-              <div className="text-slate-400 text-sm">Multiplier</div>
-              <div className="text-2xl font-bold text-purple-400">x{(perClickEarning / 2.50).toFixed(1)}</div>
-            </div>
+          </div>
+
+          {/* Products Overview */}
+          <div className="grid grid-cols-5 gap-2">
+            {STARLINK_PRODUCTS.map(product => (
+              <div key={product.id} className="bg-slate-800 rounded-lg p-3 border border-slate-700 text-center text-xs">
+                <div className="text-3xl mb-1">{product.image}</div>
+                <div className="font-bold text-white text-xs line-clamp-2">{product.name}</div>
+                <div className="text-slate-400 text-xs mt-1">${product.price}</div>
+                <div className="text-green-400 text-xs font-bold mt-1">€{product.commission.toFixed(4)}</div>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Upgrades Panel */}
-        <div className="w-72 flex flex-col gap-4">
-          <div className="bg-gradient-to-b from-slate-800 to-slate-900 rounded-xl border-2 border-slate-700 p-6 shadow-xl sticky top-28">
-            <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
-              <Icon name="CogIcon" className="text-blue-400 h-6 w-6" />
-              Upgrades
+        {/* Right Sidebar - Business Operations */}
+        <div className="w-80 flex flex-col gap-4">
+          {/* Team Management */}
+          <div className="bg-gradient-to-b from-slate-800 to-slate-900 rounded-xl border-2 border-slate-700 p-4 shadow-xl sticky top-48">
+            <h2 className="text-xl font-bold text-white mb-3 flex items-center gap-2">
+              <Icon name="UserGroupIcon" className="text-pink-400 h-5 w-5" />
+              Sales Team ({teamMembers.length})
             </h2>
 
-            {/* Auto Clicker Upgrade */}
-            <div className="mb-4">
-              <div className="bg-slate-900/50 rounded-lg p-4 border border-slate-700 hover:border-blue-500 transition-colors cursor-pointer"
-                onClick={buyAutoClicker}
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <h3 className="font-bold text-white">Auto Clicker</h3>
-                    <p className="text-xs text-slate-400 mt-1">Clicks 1 satellite/sec</p>
+            {teamMembers.length === 0 ? (
+              <p className="text-slate-400 text-sm mb-3">No team members yet</p>
+            ) : (
+              <div className="space-y-2 mb-3 max-h-40 overflow-y-auto">
+                {teamMembers.map(member => (
+                  <div key={member.id} className="bg-slate-900 rounded p-2 text-xs border border-slate-700">
+                    <div className="font-bold text-white">{member.name}</div>
+                    <div className="text-slate-400">Sales: {member.salesCount} | Earnings: €{member.totalEarnings.toFixed(4)}</div>
                   </div>
-                  <Icon name="BoltIcon" className="text-yellow-500 h-5 w-5" />
-                </div>
-                <div className="text-sm text-blue-400 font-semibold">
-                  Level: {autoClickLevel}
-                </div>
-                <button
-                  onClick={buyAutoClicker}
-                  disabled={earnings < (50 + autoClickLevel * 100)}
-                  className={`w-full mt-3 py-2 rounded-lg font-bold transition-all ${
-                    earnings >= (50 + autoClickLevel * 100)
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                      : 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                  }`}
-                >
-                  €{(50 + autoClickLevel * 100).toFixed(2)}
-                </button>
+                ))}
               </div>
-            </div>
+            )}
 
-            {/* Multiplier Upgrade */}
-            <div className="mb-4">
-              <div className="bg-slate-900/50 rounded-lg p-4 border border-slate-700 hover:border-purple-500 transition-colors cursor-pointer">
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <h3 className="font-bold text-white">Earning Multiplier</h3>
-                    <p className="text-xs text-slate-400 mt-1">+50% per click</p>
-                  </div>
-                  <Icon name="ChartBarIcon" className="text-purple-500 h-5 w-5" />
-                </div>
-                <div className="text-sm text-purple-400 font-semibold">
-                  Current: x{(perClickEarning / 2.50).toFixed(1)}
-                </div>
-                <button
-                  onClick={buyMultiplier}
-                  disabled={earnings < 200}
-                  className={`w-full mt-3 py-2 rounded-lg font-bold transition-all ${
-                    earnings >= 200
-                      ? 'bg-purple-600 hover:bg-purple-700 text-white'
-                      : 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                  }`}
-                >
-                  €200.00
-                </button>
+            <button
+              onClick={hireTeamMember}
+              disabled={balance < 500}
+              className={`w-full py-2 rounded-lg font-bold mb-3 transition-all text-sm ${
+                balance >= 500
+                  ? 'bg-pink-600 hover:bg-pink-700 text-white'
+                  : 'bg-slate-700 text-slate-500 cursor-not-allowed'
+              }`}
+            >
+              Hire Agent (€500)
+            </button>
+
+            <div className="bg-pink-900/30 border border-pink-800 rounded p-2 text-xs text-pink-300">
+              👥 Team members auto-generate sales (40% chance/3sec)
+            </div>
+          </div>
+
+          {/* Upgrades */}
+          <div className="bg-gradient-to-b from-slate-800 to-slate-900 rounded-xl border-2 border-slate-700 p-4 shadow-xl">
+            <h2 className="text-lg font-bold text-white mb-3">🚀 Upgrades</h2>
+
+            <button
+              onClick={buyMarketingCampaign}
+              disabled={balance < 1000}
+              className={`w-full py-3 rounded-lg font-bold mb-3 transition-all text-sm ${
+                balance >= 1000
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                  : 'bg-slate-700 text-slate-500 cursor-not-allowed'
+              }`}
+            >
+              <div>Marketing Campaign</div>
+              <div className="text-xs opacity-80">+5% conversion (30s) | €1000</div>
+            </button>
+
+            <div className="bg-blue-900/30 border border-blue-800 rounded p-2 text-xs text-blue-300">
+              📊 Conversion Rate: {conversionRate.toFixed(1)}% | ~{conversionValue} sales expected
+            </div>
+          </div>
+
+          {/* Business Metrics */}
+          <div className="bg-gradient-to-b from-slate-800 to-slate-900 rounded-xl border-2 border-slate-700 p-4">
+            <h2 className="text-lg font-bold text-white mb-3">📈 Business Metrics</h2>
+            
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Avg Per Sale:</span>
+                <span className="font-bold text-white">€{totalSales > 0 ? (totalEarnings / totalSales).toFixed(4) : '0.00'}</span>
               </div>
-            </div>
-
-            {/* Info */}
-            <div className="bg-blue-900/30 border border-blue-800 rounded-lg p-4 mt-6">
-              <p className="text-xs text-blue-300">
-                💡 <strong>Pro Tip:</strong> Buy auto-clickers early to earn passively while you play!
-              </p>
+              <div className="flex justify-between">
+                <span className="text-slate-400">ROI:</span>
+                <span className="font-bold text-green-400">{depositAmount > 0 ? ((totalEarnings / depositAmount) * 100).toFixed(1) : '0'}%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Projected Monthly:</span>
+                <span className="font-bold text-purple-400">€{(monthlyRevenue * 2).toFixed(4)}</span>
+              </div>
+              <div className="border-t border-slate-700 pt-2 mt-2">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Active Boosts:</span>
+                  <span className="font-bold text-yellow-400">{activeBoosts}x</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
