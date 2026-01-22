@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect } from 'react';
 import Icon from '@/components/ui/AppIcon';
 
 interface Appointment {
@@ -39,7 +39,6 @@ export default function CalendarPage() {
     notes: '',
   });
 
-  // Load from localStorage
   useEffect(() => {
     const saved = localStorage.getItem('starlink-appointments');
     if (saved) {
@@ -51,12 +50,10 @@ export default function CalendarPage() {
     }
   }, []);
 
-  // Save to localStorage
   useEffect(() => {
     localStorage.setItem('starlink-appointments', JSON.stringify(appointments));
   }, [appointments]);
 
-  // Helpers
   const getTodayString = () => new Date().toISOString().split('T')[0];
 
   const getTimeSlots = () => {
@@ -71,7 +68,6 @@ export default function CalendarPage() {
   };
 
   const isTimeSlotAvailable = (date: string, time: string, excludeId?: string) => {
-    // Allow up to 2 appointments at the same time
     const sameTimeCount = appointments.filter((apt: Appointment) => apt.date === date && apt.time === time && apt.status === 'pending' && apt.id !== excludeId).length;
     return sameTimeCount < 2;
   };
@@ -84,7 +80,6 @@ export default function CalendarPage() {
     const startingDayOfWeek = firstDay.getDay();
     const days: CalendarDay[] = [];
 
-    // Previous month
     const prevMonthLastDay = new Date(year, month, 0).getDate();
     for (let i = startingDayOfWeek - 1; i >= 0; i--) {
       const date = new Date(year, month - 1, prevMonthLastDay - i);
@@ -95,7 +90,6 @@ export default function CalendarPage() {
       });
     }
 
-    // Current month
     for (let i = 1; i <= daysInMonth; i++) {
       const date = new Date(year, month, i);
       const dateStr = date.toISOString().split('T')[0];
@@ -106,7 +100,6 @@ export default function CalendarPage() {
       });
     }
 
-    // Next month
     const remainingDays = 42 - days.length;
     for (let i = 1; i <= remainingDays; i++) {
       const date = new Date(year, month + 1, i);
@@ -133,7 +126,6 @@ export default function CalendarPage() {
     );
   };
 
-  // Handlers
   const handleLogin = () => {
     if (passwordInput === 'SecurePass123') {
       setIsAuthenticated(true);
@@ -198,8 +190,6 @@ export default function CalendarPage() {
     setAppointments(appointments.map((apt: Appointment) => apt.id === id ? { ...apt, status: 'completed' } : apt));
   };
 
-
-  // Data
   const calendarDays = getCalendarDays();
   const todayAppointments = getTodayAppointments();
   const filteredAppointments = getFilteredAppointments();
@@ -207,72 +197,65 @@ export default function CalendarPage() {
   const monthName = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+  if (showLoginModal && !isAuthenticated) {
+    return (
+      <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+        <div className="bg-card border border-border rounded-2xl shadow-2xl p-12 max-w-md w-full">
+          <div className="text-center mb-8">
+            <h1 className="text-4xl mb-2">🔐</h1>
+            <h2 className="text-3xl font-bold text-foreground mb-2">Calendar Access</h2>
+            <p className="text-muted-foreground">Enter your password to access the appointment calendar</p>
+          </div>
+          <div className="space-y-4 mb-6">
+            <input
+              type="password"
+              placeholder="Enter password..."
+              value={passwordInput}
+              onChange={(e: any) => setPasswordInput(e.target.value)}
+              onKeyPress={(e: any) => e.key === 'Enter' && handleLogin()}
+              autoFocus
+              className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground text-center tracking-widest"
+            />
+          </div>
+          <button onClick={handleLogin} className="w-full px-4 py-3 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-accent transition-smooth text-lg">Unlock Calendar 🔓</button>
+          <p className="text-xs text-muted-foreground text-center mt-4">💡 Hint: It's a secure password</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <>
-      {showLoginModal && !isAuthenticated && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-2xl shadow-2xl p-12 max-w-md w-full">
-            <div className="text-center mb-8">
-              <h1 className="text-4xl mb-2">🔐</h1>
-              <h2 className="text-3xl font-bold text-foreground mb-2">Calendar Access</h2>
-              <p className="text-muted-foreground">Enter your password to access the appointment calendar</p>
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted to-background pt-20 pb-12">
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="mb-8">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-4xl font-bold text-foreground flex items-center gap-3">
+                <span className="text-4xl">📅</span>
+                Appointment Calendar
+              </h1>
+              <p className="text-muted-foreground mt-1">Manage your appointments and schedule</p>
             </div>
-            <div className="space-y-4 mb-6">
-              <input
-                type="password"
-                placeholder="Enter password..."
-                value={passwordInput}
-                onChange={(e: any) => setPasswordInput(e.target.value)}
-                onKeyPress={(e: any) => e.key === 'Enter' && handleLogin()}
-                autoFocus
-                className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground text-center tracking-widest"
-              />
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowAddModal(true);
+                  setSelectedDate(getTodayString());
+                  setEditingId(null);
+                  setFormData({ clientName: '', agentName: '', phoneNumber: '', time: '09:00', notes: '' });
+                }}
+                className="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-accent transition-smooth"
+              >
+                + New Appointment
+              </button>
+              <button onClick={handleLogout} className="px-6 py-3 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-smooth">🚪 Logout</button>
             </div>
-            <button onClick={handleLogin} className="w-full px-4 py-3 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-accent transition-smooth text-lg">Unlock Calendar 🔓</button>
-            <p className="text-xs text-muted-foreground text-center mt-4">💡 Hint: It's a secure password</p>
           </div>
         </div>
-      )}
-      {isAuthenticated && (
-        <div className="min-h-screen bg-gradient-to-br from-background via-muted to-background pt-20 pb-12">
-          <div className="max-w-7xl mx-auto px-4">
-            {/* Header with Logout */}
-            <div className="mb-8">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h1 className="text-4xl font-bold text-foreground flex items-center gap-3">
-                    <span className="text-4xl">📅</span>
-                    Appointment Calendar
-                  </h1>
-                  <p className="text-muted-foreground mt-1">Manage your appointments and schedule</p>
-                </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => {
-                      setShowAddModal(true);
-                      setSelectedDate(getTodayString());
-                      setEditingId(null);
-                      setFormData({ clientName: '', agentName: '', phoneNumber: '', time: '09:00', notes: '' });
-                    }}
-                    className="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-accent transition-smooth"
-                  >
-                    + New Appointment
-                  </button>
-                <button
-                  onClick={handleLogout}
-                  className="px-6 py-3 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-smooth"
-                >
-                  🚪 Logout
-                </button>
-              </div>
-            </div>
-          </div>
 
         <div className="flex gap-6">
-          {/* Main Calendar */}
           <div className="flex-1">
             <div className="bg-card border border-border rounded-2xl shadow-depth p-6">
-              {/* Month Navigation */}
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-foreground">{monthName}</h2>
                 <div className="flex gap-2">
@@ -282,12 +265,10 @@ export default function CalendarPage() {
                 </div>
               </div>
 
-              {/* Day Names */}
               <div className="grid grid-cols-7 gap-2 mb-2">
                 {dayNames.map(day => <div key={day} className="text-center font-bold text-muted-foreground text-sm py-2">{day}</div>)}
               </div>
 
-              {/* Calendar Grid */}
               <div className="grid grid-cols-7 gap-2">
                 {calendarDays.map((day, idx) => {
                   const dateStr = day.date.toISOString().split('T')[0];
@@ -325,7 +306,6 @@ export default function CalendarPage() {
               </div>
             </div>
 
-            {/* Appointments List */}
             <div className="mt-6 bg-card border border-border rounded-2xl shadow-depth p-6">
               <h3 className="text-xl font-bold text-foreground mb-4">All Appointments</h3>
               <div className="mb-6">
@@ -387,7 +367,6 @@ export default function CalendarPage() {
             </div>
           </div>
 
-          {/* Today's Schedule Sidebar */}
           <div className="w-80">
             <div className="bg-card border border-border rounded-2xl shadow-depth p-6 sticky top-24">
               <h3 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
@@ -424,27 +403,27 @@ export default function CalendarPage() {
                 <div className="text-center py-8 text-muted-foreground"><p className="text-2xl mb-2">✨</p><p>No appointments today</p><p className="text-xs mt-1">Schedule is clear!</p></div>
               )}
 
-              {/* Statistics */}
               <div className="mt-6 pt-6 border-t border-border space-y-3">
                 <div className="flex justify-between text-sm"><span className="text-muted-foreground">Pending:</span><span className="font-bold text-yellow-400">{appointments.filter(a => a.status === 'pending').length}</span></div>
                 <div className="flex justify-between text-sm"><span className="text-muted-foreground">Completed:</span><span className="font-bold text-green-400">{appointments.filter(a => a.status === 'completed').length}</span></div>
                 <div className="flex justify-between text-sm"><span className="text-muted-foreground">Cancelled:</span><span className="font-bold text-red-400">{appointments.filter(a => a.status === 'cancelled').length}</span></div>
               </div>
             </div>
-      )}
+          </div>
+        </div>
+      </div>
+
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-card border border-border rounded-2xl shadow-2xl p-8 max-w-4xl w-full h-auto max-h-[90vh] overflow-y-auto">
             <h2 className="text-3xl font-bold text-foreground mb-8 sticky top-0 bg-card">{editingId ? '✏️ Edit Appointment' : '📝 New Appointment'}</h2>
 
             <div className="grid grid-cols-2 gap-6 mb-8">
-              {/* Date Display */}
               <div className="bg-muted rounded-lg p-3 border border-border col-span-2">
                 <p className="text-xs text-muted-foreground font-semibold uppercase mb-2">📅 Selected Date</p>
                 <p className="text-lg font-bold text-foreground">{selectedDate ? new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : 'No date selected'}</p>
               </div>
 
-              {/* Time Grid */}
               <div className="col-span-2">
                 <label className="block text-sm font-semibold text-foreground mb-3">⏰ Select Time *</label>
                 <div className="grid grid-cols-5 gap-2 max-h-60 overflow-y-auto bg-background border border-border rounded-lg p-3">
@@ -469,32 +448,27 @@ export default function CalendarPage() {
                 <p className="text-xs text-muted-foreground mt-2">Appointments from 09:00 to 18:00 (15 min intervals)</p>
               </div>
 
-              {/* Client Name */}
               <div className="col-span-2">
                 <label className="block text-sm font-semibold text-foreground mb-2">Full Name (Client) *</label>
                 <input type="text" placeholder="John Smith" value={formData.clientName} onChange={(e) => setFormData({ ...formData, clientName: e.target.value })} className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground" />
               </div>
 
-              {/* Agent Name */}
               <div className="col-span-2">
                 <label className="block text-sm font-semibold text-foreground mb-2">Agent Name *</label>
                 <input type="text" placeholder="Agent Name" value={formData.agentName} onChange={(e) => setFormData({ ...formData, agentName: e.target.value })} className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground" />
               </div>
 
-              {/* Phone Number */}
               <div className="col-span-2">
                 <label className="block text-sm font-semibold text-foreground mb-2">Phone Number *</label>
                 <input type="tel" placeholder="+49 1234 567890" value={formData.phoneNumber} onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })} className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground" />
               </div>
 
-              {/* Notes */}
               <div className="col-span-2">
                 <label className="block text-sm font-semibold text-foreground mb-2">Notes / Additional Details</label>
                 <textarea placeholder="Add any notes about this appointment..." value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground resize-none" rows={3} />
               </div>
             </div>
 
-            {/* Buttons */}
             <div className="flex gap-3 sticky bottom-0 bg-card pt-6">
               <button onClick={() => { setShowAddModal(false); setEditingId(null); setSelectedDate(''); }} className="flex-1 px-4 py-3 bg-muted text-foreground rounded-lg font-bold hover:bg-muted/80 transition-smooth">Cancel</button>
               <button onClick={handleSaveAppointment} className="flex-1 px-4 py-3 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-accent transition-smooth">{editingId ? 'Update Appointment' : 'Create Appointment'}</button>
@@ -502,6 +476,6 @@ export default function CalendarPage() {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
