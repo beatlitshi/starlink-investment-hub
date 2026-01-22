@@ -246,25 +246,60 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const login = useCallback(async (email: string, password: string) => {
     try {
+      console.log('Login attempt:', email);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
+        console.error('Sign in error:', error);
         return { success: false, error: error.message };
       }
 
       if (data.user) {
-        const profile = await loadUserProfile(data.user.id, data.user.email!);
-        if (profile) {
-          setUser(profile);
-          return { success: true };
+        console.log('Sign in successful, loading profile');
+        // Trigger profile load and let auth state change handle it
+        try {
+          const profile = await loadUserProfile(data.user.id, data.user.email!);
+          if (profile) {
+            console.log('Profile loaded in login');
+            setUser(profile);
+          } else {
+            console.log('Profile load returned null, using fallback');
+            setUser({
+              id: '',
+              authId: data.user.id,
+              email: data.user.email || '',
+              firstName: '',
+              lastName: '',
+              phoneNumber: '',
+              balance: 0,
+              investments: [],
+              createdAt: new Date().toISOString(),
+            });
+          }
+        } catch (profileErr) {
+          console.error('Profile load error in login:', profileErr);
+          // Still consider it successful - user is authenticated
+          setUser({
+            id: '',
+            authId: data.user.id,
+            email: data.user.email || '',
+            firstName: '',
+            lastName: '',
+            phoneNumber: '',
+            balance: 0,
+            investments: [],
+            createdAt: new Date().toISOString(),
+          });
         }
+        return { success: true };
       }
 
-      return { success: false, error: 'Failed to load profile' };
+      return { success: false, error: 'No user data' };
     } catch (err) {
+      console.error('Login error:', err);
       return { success: false, error: String(err) };
     }
   }, [loadUserProfile]);
