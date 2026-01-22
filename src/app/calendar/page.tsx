@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import Icon from '@/components/ui/AppIcon';
 
 interface Appointment {
@@ -28,6 +28,9 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [showLoginModal, setShowLoginModal] = useState(true);
   const [formData, setFormData] = useState({
     clientName: '',
     agentName: '',
@@ -68,7 +71,9 @@ export default function CalendarPage() {
   };
 
   const isTimeSlotAvailable = (date: string, time: string, excludeId?: string) => {
-    return !appointments.some(apt => apt.date === date && apt.time === time && apt.status === 'pending' && apt.id !== excludeId);
+    // Allow up to 2 appointments at the same time
+    const sameTimeCount = appointments.filter((apt: Appointment) => apt.date === date && apt.time === time && apt.status === 'pending' && apt.id !== excludeId).length;
+    return sameTimeCount < 2;
   };
 
   const getCalendarDays = (): CalendarDay[] => {
@@ -86,7 +91,7 @@ export default function CalendarPage() {
       days.push({
         date,
         isCurrentMonth: false,
-        appointments: appointments.filter(apt => apt.date === date.toISOString().split('T')[0]),
+        appointments: appointments.filter((apt: Appointment) => apt.date === date.toISOString().split('T')[0]),
       });
     }
 
@@ -97,7 +102,7 @@ export default function CalendarPage() {
       days.push({
         date,
         isCurrentMonth: true,
-        appointments: appointments.filter(apt => apt.date === dateStr),
+        appointments: appointments.filter((apt: Appointment) => apt.date === dateStr),
       });
     }
 
@@ -108,7 +113,7 @@ export default function CalendarPage() {
       days.push({
         date,
         isCurrentMonth: false,
-        appointments: appointments.filter(apt => apt.date === date.toISOString().split('T')[0]),
+        appointments: appointments.filter((apt: Appointment) => apt.date === date.toISOString().split('T')[0]),
       });
     }
 
@@ -117,11 +122,11 @@ export default function CalendarPage() {
 
   const getTodayAppointments = () => {
     const today = getTodayString();
-    return appointments.filter(apt => apt.date === today && apt.status === 'pending').sort((a, b) => a.time.localeCompare(b.time));
+    return appointments.filter((apt: Appointment) => apt.date === today && apt.status === 'pending').sort((a: Appointment, b: Appointment) => a.time.localeCompare(b.time));
   };
 
   const getFilteredAppointments = () => {
-    return appointments.filter(apt =>
+    return appointments.filter((apt: Appointment) =>
       apt.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       apt.agentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       apt.phoneNumber.includes(searchQuery)
@@ -129,6 +134,22 @@ export default function CalendarPage() {
   };
 
   // Handlers
+  const handleLogin = () => {
+    if (passwordInput === 'SecurePass123') {
+      setIsAuthenticated(true);
+      setShowLoginModal(false);
+    } else {
+      alert('❌ Incorrect password. Try again!');
+      setPasswordInput('');
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setShowLoginModal(true);
+    setPasswordInput('');
+  };
+
   const handleSaveAppointment = () => {
     if (!selectedDate || !formData.clientName || !formData.agentName || !formData.phoneNumber || !formData.time) {
       alert('Please fill in all required fields');
@@ -149,7 +170,7 @@ export default function CalendarPage() {
     };
 
     if (editingId) {
-      setAppointments(appointments.map(apt => apt.id === editingId ? newAppointment : apt));
+      setAppointments(appointments.map((apt: Appointment) => apt.id === editingId ? newAppointment : apt));
       setEditingId(null);
     } else {
       setAppointments([...appointments, newAppointment]);
@@ -162,7 +183,7 @@ export default function CalendarPage() {
 
   const handleDeleteAppointment = (id: string) => {
     if (confirm('Delete this appointment?')) {
-      setAppointments(appointments.filter(apt => apt.id !== id));
+      setAppointments(appointments.filter((apt: Appointment) => apt.id !== id));
     }
   };
 
@@ -174,7 +195,7 @@ export default function CalendarPage() {
   };
 
   const handleCompleteAppointment = (id: string) => {
-    setAppointments(appointments.map(apt => apt.id === id ? { ...apt, status: 'completed' } : apt));
+    setAppointments(appointments.map((apt: Appointment) => apt.id === id ? { ...apt, status: 'completed' } : apt));
   };
 
   // Data
@@ -186,31 +207,76 @@ export default function CalendarPage() {
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted to-background pt-20 pb-12">
-      <div className="max-w-7xl mx-auto px-4">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-4xl font-bold text-foreground flex items-center gap-3">
-                <span className="text-4xl">📅</span>
-                Appointment Calendar
-              </h1>
-              <p className="text-muted-foreground mt-1">Manage your appointments and schedule</p>
+    <>
+      {/* Login Modal */}
+      {showLoginModal && !isAuthenticated && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-2xl shadow-2xl p-12 max-w-md w-full">
+            <div className="text-center mb-8">
+              <h1 className="text-4xl mb-2">🔐</h1>
+              <h2 className="text-3xl font-bold text-foreground mb-2">Calendar Access</h2>
+              <p className="text-muted-foreground">Enter your password to access the appointment calendar</p>
             </div>
+
+            <div className="space-y-4 mb-6">
+              <input
+                type="password"
+                placeholder="Enter password..."
+                value={passwordInput}
+                onChange={(e: any) => setPasswordInput(e.target.value)}
+                onKeyPress={(e: any) => e.key === 'Enter' && handleLogin()}
+                autoFocus
+                className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground text-center tracking-widest"
+              />
+            </div>
+
             <button
-              onClick={() => {
-                setShowAddModal(true);
-                setSelectedDate(getTodayString());
-                setEditingId(null);
-                setFormData({ clientName: '', agentName: '', phoneNumber: '', time: '09:00', notes: '' });
-              }}
-              className="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-accent transition-smooth"
+              onClick={handleLogin}
+              className="w-full px-4 py-3 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-accent transition-smooth text-lg"
             >
-              + New Appointment
+              Unlock Calendar 🔓
             </button>
+
+            <p className="text-xs text-muted-foreground text-center mt-4">💡 Hint: It's a secure password</p>
           </div>
         </div>
+      )}
+
+      {/* Calendar Content - Only show if authenticated */}
+      {isAuthenticated && (
+        <div className="min-h-screen bg-gradient-to-br from-background via-muted to-background pt-20 pb-12">
+          <div className="max-w-7xl mx-auto px-4">
+            {/* Header with Logout */}
+            <div className="mb-8">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h1 className="text-4xl font-bold text-foreground flex items-center gap-3">
+                    <span className="text-4xl">📅</span>
+                    Appointment Calendar
+                  </h1>
+                  <p className="text-muted-foreground mt-1">Manage your appointments and schedule</p>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowAddModal(true);
+                      setSelectedDate(getTodayString());
+                      setEditingId(null);
+                      setFormData({ clientName: '', agentName: '', phoneNumber: '', time: '09:00', notes: '' });
+                    }}
+                    className="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-accent transition-smooth"
+                  >
+                    + New Appointment
+                  </button>
+                <button
+                  onClick={handleLogout}
+                  className="px-6 py-3 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-smooth"
+                >
+                  🚪 Logout
+                </button>
+              </div>
+            </div>
+          </div>
 
         <div className="flex gap-6">
           {/* Main Calendar */}
@@ -450,6 +516,6 @@ export default function CalendarPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
