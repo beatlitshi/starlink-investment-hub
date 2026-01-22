@@ -21,6 +21,7 @@ const Header = ({ className = '' }: HeaderProps) => {
     { name: 'Market Dashboard', path: '/market-dashboard', icon: 'PresentationChartLineIcon' },
     { name: 'Partnership Portal', path: '/partnership-portal', icon: 'UserGroupIcon' },
     { name: 'Personal Dashboard', path: '/personal-dashboard', icon: 'UserCircleIcon' },
+    { name: '🎮 Clicker Game', path: '/test', icon: 'SparklesIcon' },
   ];
 
   const toggleMobileMenu = () => {
