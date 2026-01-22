@@ -209,7 +209,6 @@ export default function CalendarPage() {
 
   return (
     <>
-      {/* Login Modal */}
       {showLoginModal && !isAuthenticated && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
           <div className="bg-card border border-border rounded-2xl shadow-2xl p-12 max-w-md w-full">
@@ -218,7 +217,6 @@ export default function CalendarPage() {
               <h2 className="text-3xl font-bold text-foreground mb-2">Calendar Access</h2>
               <p className="text-muted-foreground">Enter your password to access the appointment calendar</p>
             </div>
-
             <div className="space-y-4 mb-6">
               <input
                 type="password"
@@ -230,20 +228,11 @@ export default function CalendarPage() {
                 className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground text-center tracking-widest"
               />
             </div>
-
-            <button
-              onClick={handleLogin}
-              className="w-full px-4 py-3 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-accent transition-smooth text-lg"
-            >
-              Unlock Calendar 🔓
-            </button>
-
+            <button onClick={handleLogin} className="w-full px-4 py-3 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-accent transition-smooth text-lg">Unlock Calendar 🔓</button>
             <p className="text-xs text-muted-foreground text-center mt-4">💡 Hint: It's a secure password</p>
           </div>
         </div>
       )}
-
-      {/* Calendar Content - Only show if authenticated */}
       {isAuthenticated && (
         <div className="min-h-screen bg-gradient-to-br from-background via-muted to-background pt-20 pb-12">
           <div className="max-w-7xl mx-auto px-4">
@@ -442,12 +431,7 @@ export default function CalendarPage() {
                 <div className="flex justify-between text-sm"><span className="text-muted-foreground">Cancelled:</span><span className="font-bold text-red-400">{appointments.filter(a => a.status === 'cancelled').length}</span></div>
               </div>
             </div>
-          </div>
-        </div>
-        </div>
       )}
-
-      {/* Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-card border border-border rounded-2xl shadow-2xl p-8 max-w-4xl w-full h-auto max-h-[90vh] overflow-y-auto">
