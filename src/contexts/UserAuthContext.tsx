@@ -134,22 +134,27 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
 
-      if (event === 'SIGNED_IN' && session?.user) {
-        const profile = await loadUserProfile(session.user.id, session.user.email!);
-        if (profile && mounted) {
-          setUser(profile);
-        }
-        setIsLoading(false);
-      } else if (event === 'SIGNED_OUT') {
+      // Only SIGNED_OUT should clear user - don't log out on errors
+      if (event === 'SIGNED_OUT') {
         setUser(null);
         setIsLoading(false);
-      } else if (event === 'INITIAL_SESSION' && session?.user) {
-        const profile = await loadUserProfile(session.user.id, session.user.email!);
-        if (profile && mounted) {
-          setUser(profile);
+        return;
+      }
+
+      // For SIGNED_IN and INITIAL_SESSION, load profile
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+        try {
+          const profile = await loadUserProfile(session.user.id, session.user.email!);
+          if (profile && mounted) {
+            setUser(profile);
+          }
+        } catch (err) {
+          console.error(`Profile load error on ${event}:`, err);
+          // Don't clear user on error - keep them logged in
         }
         setIsLoading(false);
       } else {
+        // For other events, just stop loading
         setIsLoading(false);
       }
     });

@@ -53,8 +53,14 @@ export async function POST(request: NextRequest) {
     const maturityDate = new Date(startDate);
     maturityDate.setMonth(maturityDate.getMonth() + duration);
 
-    // Create deposit
-    const { data: deposit, error: depositError } = await supabase
+    // Create deposit with service role to bypass RLS
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+      process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+    );
+
+    const { data: deposit, error: depositError } = await supabaseAdmin
       .from('fixed_deposits')
       .insert({
         user_id: userProfile.id,
@@ -73,7 +79,7 @@ export async function POST(request: NextRequest) {
 
     if (depositError) {
       console.error('Error creating deposit:', depositError);
-      return NextResponse.json({ error: 'Failed to create deposit' }, { status: 500 });
+      return NextResponse.json({ error: `Failed to create deposit: ${depositError.message}` }, { status: 500 });
     }
 
     // Deduct from user balance

@@ -113,6 +113,13 @@ export default function FixedDepositPanel() {
 
       const result = await response.json();
 
+      if (!response.ok) {
+        console.error('Deposit API error:', result);
+        alert(`Fehler: ${result.error || 'Unbekannter Fehler'}`);
+        setIsLoading(false);
+        return;
+      }
+
       if (result.success) {
         alert(`Festgeld erfolgreich angelegt! Rendite: ${result.deposit.expectedReturn.toFixed(2)} €`);
         setDepositAmount('');
