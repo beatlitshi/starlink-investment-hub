@@ -198,6 +198,22 @@ export default function CalendarPage() {
     setAppointments(appointments.map((apt: Appointment) => apt.id === id ? { ...apt, status: 'completed' } : apt));
   };
 
+  const handleLogin = () => {
+    if (passwordInput === 'SecurePass123') {
+      setIsAuthenticated(true);
+      setShowLoginModal(false);
+    } else {
+      alert('❌ Incorrect password. Try again!');
+      setPasswordInput('');
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setShowLoginModal(true);
+    setPasswordInput('');
+  };
+
   // Data
   const calendarDays = getCalendarDays();
   const todayAppointments = getTodayAppointments();
