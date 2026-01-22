@@ -106,6 +106,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     let mounted = true;
     const loadTimeout = setTimeout(() => {
       if (mounted) {
+        console.log('Auth loading timeout - forcing clear');
         setIsLoading(false);
       }
     }, 4000);
@@ -113,13 +114,55 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const initAuth = async () => {
       try {
         // Get current session
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error('Session error:', sessionError);
+        }
 
         if (session?.user && mounted) {
-          const profile = await loadUserProfile(session.user.id, session.user.email!);
-          if (profile && mounted) {
-            setUser(profile);
+          console.log('Session found, loading profile for:', session.user.email);
+          try {
+            const profile = await loadUserProfile(session.user.id, session.user.email!);
+            if (profile && mounted) {
+              console.log('Profile loaded successfully');
+              setUser(profile);
+            } else {
+              console.warn('Profile load returned null, but keeping session');
+              // Even if profile fails, keep user logged in with basic info
+              if (mounted) {
+                setUser({
+                  id: '',
+                  authId: session.user.id,
+                  email: session.user.email || '',
+                  firstName: '',
+                  lastName: '',
+                  phoneNumber: '',
+                  balance: 0,
+                  investments: [],
+                  createdAt: new Date().toISOString(),
+                });
+              }
+            }
+          } catch (profileErr) {
+            console.error('Profile load error:', profileErr);
+            // Fallback: set basic user info
+            if (mounted) {
+              setUser({
+                id: '',
+                authId: session.user.id,
+                email: session.user.email || '',
+                firstName: '',
+                lastName: '',
+                phoneNumber: '',
+                balance: 0,
+                investments: [],
+                createdAt: new Date().toISOString(),
+              });
+            }
           }
+        } else if (!session?.user) {
+          console.log('No session found');
         }
       } catch (err) {
         console.error('Auth init error:', err);
@@ -134,8 +177,11 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
 
+      console.log('Auth state change:', event);
+
       // Only SIGNED_OUT should clear user - don't log out on errors
       if (event === 'SIGNED_OUT') {
+        console.log('User signed out');
         setUser(null);
         setIsLoading(false);
         return;
@@ -143,14 +189,44 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       // For SIGNED_IN and INITIAL_SESSION, load profile
       if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+        console.log('Loading profile for:', session.user.email);
         try {
           const profile = await loadUserProfile(session.user.id, session.user.email!);
           if (profile && mounted) {
+            console.log('Profile loaded');
             setUser(profile);
+          } else {
+            console.warn('Profile null, using fallback');
+            if (mounted) {
+              setUser({
+                id: '',
+                authId: session.user.id,
+                email: session.user.email || '',
+                firstName: '',
+                lastName: '',
+                phoneNumber: '',
+                balance: 0,
+                investments: [],
+                createdAt: new Date().toISOString(),
+              });
+            }
           }
         } catch (err) {
           console.error(`Profile load error on ${event}:`, err);
-          // Don't clear user on error - keep them logged in
+          // Keep user logged in with fallback data
+          if (mounted) {
+            setUser({
+              id: '',
+              authId: session.user.id,
+              email: session.user.email || '',
+              firstName: '',
+              lastName: '',
+              phoneNumber: '',
+              balance: 0,
+              investments: [],
+              createdAt: new Date().toISOString(),
+            });
+          }
         }
         setIsLoading(false);
       } else {
