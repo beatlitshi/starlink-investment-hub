@@ -309,14 +309,21 @@ export default function FixedDepositPanel() {
               const maturityDate = new Date(deposit.maturityDate);
               const isMatured = now >= maturityDate;
               const daysRemaining = Math.ceil((maturityDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+              
+              // Safety checks for undefined values
+              const amount = deposit.amount || 0;
+              const apy = deposit.apy || 0;
+              const duration = deposit.duration || 0;
+              const expectedReturn = deposit.expectedReturn || 0;
+              const currentValue = deposit.currentValue || 0;
 
               return (
                 <div key={deposit.id} className="border border-border rounded-lg p-4">
                   <div className="flex justify-between items-start mb-3">
                     <div>
-                      <div className="font-bold text-lg">{deposit.amount.toLocaleString('de-DE', { minimumFractionDigits: 2 })} €</div>
+                      <div className="font-bold text-lg">{amount.toLocaleString('de-DE', { minimumFractionDigits: 2 })} €</div>
                       <div className="text-sm text-muted-foreground">
-                        {deposit.apy}% p.a. • {deposit.duration} Monate
+                        {apy}% p.a. • {duration} Monate
                       </div>
                     </div>
                     <div className={`px-3 py-1 rounded-full text-xs font-bold ${
@@ -335,11 +342,11 @@ export default function FixedDepositPanel() {
                   <div className="grid grid-cols-2 gap-4 mb-3">
                     <div>
                       <div className="text-xs text-muted-foreground">Erwartete Rendite</div>
-                      <div className="font-bold text-success">+{deposit.expectedReturn.toLocaleString('de-DE', { minimumFractionDigits: 2 })} €</div>
+                      <div className="font-bold text-success">+{expectedReturn.toLocaleString('de-DE', { minimumFractionDigits: 2 })} €</div>
                     </div>
                     <div>
                       <div className="text-xs text-muted-foreground">Gesamtauszahlung</div>
-                      <div className="font-bold">{deposit.currentValue.toLocaleString('de-DE', { minimumFractionDigits: 2 })} €</div>
+                      <div className="font-bold">{currentValue.toLocaleString('de-DE', { minimumFractionDigits: 2 })} €</div>
                     </div>
                   </div>
 
