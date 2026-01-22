@@ -18,6 +18,7 @@ import StockTradingPanel from './StockTradingPanel';
 import WithdrawPanel from './WithdrawPanel';
 import CryptoDepositPanel from './CryptoDepositPanel';
 import TransactionHistory from './TransactionHistory';
+import FixedDepositPanel from './FixedDepositPanel';
 import Icon from '@/components/ui/AppIcon';
 import { useUserAuth } from '@/contexts/UserAuthContext';
 import { supabase } from '@/lib/supabase';
@@ -138,7 +139,7 @@ export default function PersonalDashboardInteractive() {
     }
   ]);
   
-  const [selectedView, setSelectedView] = useState<'overview' | 'investments' | 'analytics' | 'goals' | 'tax' | 'ai' | 'social' | 'advanced' | 'trading' | 'withdraw' | 'crypto-deposit' | 'history'>('overview');
+  const [selectedView, setSelectedView] = useState<'overview' | 'investments' | 'analytics' | 'goals' | 'tax' | 'ai' | 'social' | 'advanced' | 'trading' | 'withdraw' | 'crypto-deposit' | 'history' | 'fixed-deposit'>('overview');
 
   useEffect(() => {
     setIsHydrated(true);
@@ -517,6 +518,7 @@ export default function PersonalDashboardInteractive() {
           { id: 'overview', label: 'Übersicht', icon: 'HomeIcon' },
           { id: 'investments', label: 'Investitionen', icon: 'CurrencyDollarIcon' },
           { id: 'trading', label: 'Trading', icon: 'ArrowPathIcon', badge: 'NEU' },
+          { id: 'fixed-deposit', label: 'Festgeld-Staking', icon: 'BanknotesIcon', badge: '8%' },
           { id: 'history', label: 'Transaction History', icon: 'ClockIcon' },
           { id: 'withdraw', label: 'Withdraw', icon: 'BanknotesIcon' },
           { id: 'crypto-deposit', label: 'Crypto Deposit', icon: 'CurrencyDollarIcon', badge: '8%' },
@@ -659,6 +661,12 @@ export default function PersonalDashboardInteractive() {
       {selectedView === 'history' && (
         <div className="space-y-6">
           <TransactionHistory />
+        </div>
+      )}
+
+      {selectedView === 'fixed-deposit' && (
+        <div className="space-y-6">
+          <FixedDepositPanel />
         </div>
       )}
     </div>

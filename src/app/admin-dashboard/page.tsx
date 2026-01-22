@@ -50,7 +50,7 @@ interface HomepageSection {
 export default function AdminDashboard() {
   const router = useRouter();
   const { isAuthenticated, login, logout } = useAdminAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'stocks' | 'content' | 'system' | 'financial'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'stocks' | 'content' | 'system' | 'financial' | 'fixed-deposits'>('overview');
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [loginError, setLoginError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -755,6 +755,7 @@ export default function AdminDashboard() {
             { id: 'overview', label: 'Overview', icon: 'ChartBarIcon' },
             { id: 'users', label: 'User Management', icon: 'UserGroupIcon' },
             { id: 'financial', label: 'Financial Management', icon: 'BanknotesIcon' },
+            { id: 'fixed-deposits', label: 'Festgeld Management', icon: 'BanknotesIcon' },
             { id: 'stocks', label: 'Stock Prices', icon: 'CurrencyDollarIcon' },
             { id: 'content', label: 'Content Management', icon: 'DocumentTextIcon' },
             { id: 'system', label: 'System Settings', icon: 'CogIcon' },
@@ -1667,6 +1668,78 @@ export default function AdminDashboard() {
                     Assign Wallet
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'fixed-deposits' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-headline font-bold text-foreground">Festgeld Management</h2>
+              <div className="text-sm text-muted-foreground">
+                Total Deposits: {users.reduce((sum, u) => sum + (u as any).totalFixedDeposits || 0, 0).toLocaleString('de-DE', { minimumFractionDigits: 2 })} €
+              </div>
+            </div>
+
+            <div className="bg-card rounded-lg p-6 shadow-depth">
+              <h3 className="text-xl font-headline font-bold text-foreground mb-4">All User Fixed Deposits</h3>
+              <div className="text-sm text-muted-foreground mb-4">
+                View and manage all active, matured, and withdrawn fixed-term deposits
+              </div>
+              
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-3 px-4 text-sm font-cta font-bold text-muted-foreground">User</th>
+                      <th className="text-right py-3 px-4 text-sm font-cta font-bold text-muted-foreground">Amount</th>
+                      <th className="text-center py-3 px-4 text-sm font-cta font-bold text-muted-foreground">APY</th>
+                      <th className="text-center py-3 px-4 text-sm font-cta font-bold text-muted-foreground">Duration</th>
+                      <th className="text-left py-3 px-4 text-sm font-cta font-bold text-muted-foreground">Start Date</th>
+                      <th className="text-left py-3 px-4 text-sm font-cta font-bold text-muted-foreground">Maturity</th>
+                      <th className="text-right py-3 px-4 text-sm font-cta font-bold text-muted-foreground">Expected Return</th>
+                      <th className="text-center py-3 px-4 text-sm font-cta font-bold text-muted-foreground">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b border-border">
+                      <td colSpan={8} className="py-8 text-center text-muted-foreground">
+                        <Icon name="BanknotesIcon" size={48} className="mx-auto mb-2 opacity-50" />
+                        <p>No fixed deposits yet. Feature available after API integration.</p>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-card rounded-lg p-6 shadow-depth">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-muted-foreground">Active Deposits</span>
+                  <Icon name="ChartBarIcon" size={20} className="text-primary" />
+                </div>
+                <p className="text-3xl font-headline font-bold text-foreground">0</p>
+                <p className="text-xs text-muted-foreground mt-1">Currently earning interest</p>
+              </div>
+
+              <div className="bg-card rounded-lg p-6 shadow-depth">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-muted-foreground">Matured Deposits</span>
+                  <Icon name="CheckCircleIcon" size={20} className="text-success" />
+                </div>
+                <p className="text-3xl font-headline font-bold text-success">0</p>
+                <p className="text-xs text-muted-foreground mt-1">Ready for payout</p>
+              </div>
+
+              <div className="bg-card rounded-lg p-6 shadow-depth">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-muted-foreground">Total Interest Paid</span>
+                  <Icon name="CurrencyDollarIcon" size={20} className="text-warning" />
+                </div>
+                <p className="text-3xl font-headline font-bold text-foreground">0 €</p>
+                <p className="text-xs text-muted-foreground mt-1">Lifetime interest payments</p>
               </div>
             </div>
           </div>

@@ -104,6 +104,11 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     isInitialized.current = true;
 
     let mounted = true;
+    const loadTimeout = setTimeout(() => {
+      if (mounted) {
+        setIsLoading(false);
+      }
+    }, 4000);
 
     const initAuth = async () => {
       try {
@@ -144,6 +149,8 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           setUser(profile);
         }
         setIsLoading(false);
+      } else {
+        setIsLoading(false);
       }
     });
 
@@ -151,6 +158,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     return () => {
       mounted = false;
+      clearTimeout(loadTimeout);
       subscription.unsubscribe();
     };
   }, [loadUserProfile]);
@@ -269,12 +277,12 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('balance')
+        .select('balance, investments')
         .eq('auth_id', user.authId)
         .single();
 
       if (!error && data) {
-        setUser(prev => prev ? { ...prev, balance: data.balance } : null);
+        setUser(prev => prev ? { ...prev, balance: data.balance, investments: data.investments || [] } : null);
       }
     } catch (err) {
       console.error('Balance refresh error:', err);
