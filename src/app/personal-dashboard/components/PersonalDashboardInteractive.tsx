@@ -272,38 +272,38 @@ export default function PersonalDashboardInteractive() {
   },
   {
     id: '4',
+    label: 'Calendar',
+    icon: 'CalendarIcon',
+    color: 'primary',
+    onClick: () => window.location.href = '/calendar'
+  },
+  {
+    id: '5',
     label: 'AI Advisor',
     icon: 'SparklesIcon',
     color: 'primary',
     onClick: () => setSelectedView('ai')
   },
   {
-    id: '5',
+    id: '6',
     label: 'Social Trading',
     icon: 'UserGroupIcon',
     color: 'secondary',
     onClick: () => setSelectedView('social')
   },
   {
-    id: '6',
+    id: '7',
     label: 'Analytics',
     icon: 'ChartBarIcon',
     color: 'primary',
     onClick: () => setSelectedView('advanced')
   },
   {
-    id: '7',
+    id: '8',
     label: 'Tax Reports',
     icon: 'DocumentTextIcon',
     color: 'warning',
     onClick: () => setSelectedView('tax')
-  },
-  {
-    id: '8',
-    label: 'Settings',
-    icon: 'CogIcon',
-    color: 'muted-foreground',
-    onClick: () => alert('Settings')
   }];
 
 
