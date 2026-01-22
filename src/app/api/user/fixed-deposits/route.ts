@@ -27,7 +27,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch deposits' }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, deposits: deposits || [] });
+    // Ensure dates are properly formatted
+    const formattedDeposits = (deposits || []).map((deposit: any) => ({
+      ...deposit,
+      startDate: deposit.start_date ? new Date(deposit.start_date).toISOString() : new Date().toISOString(),
+      maturityDate: deposit.maturity_date ? new Date(deposit.maturity_date).toISOString() : new Date().toISOString(),
+    }));
+
+    return NextResponse.json({ success: true, deposits: formattedDeposits });
   } catch (error) {
     console.error('Error in fixed-deposits route:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

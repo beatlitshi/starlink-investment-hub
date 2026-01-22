@@ -306,7 +306,11 @@ export default function FixedDepositPanel() {
           <div className="space-y-4">
             {activeDeposits.map((deposit) => {
               const now = new Date();
-              const maturityDate = new Date(deposit.maturityDate);
+              
+              // Safe date parsing
+              const startDate = deposit.startDate ? new Date(deposit.startDate) : new Date();
+              const maturityDate = deposit.maturityDate ? new Date(deposit.maturityDate) : new Date();
+              
               const isMatured = now >= maturityDate;
               const daysRemaining = Math.ceil((maturityDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
               
@@ -316,6 +320,14 @@ export default function FixedDepositPanel() {
               const duration = deposit.duration || 0;
               const expectedReturn = deposit.expectedReturn || 0;
               const currentValue = deposit.currentValue || 0;
+              
+              // Format dates safely
+              const startDateStr = startDate.toString() === 'Invalid Date' 
+                ? 'N/A'
+                : startDate.toLocaleDateString('de-DE');
+              const maturityDateStr = maturityDate.toString() === 'Invalid Date'
+                ? 'N/A'
+                : maturityDate.toLocaleDateString('de-DE');
 
               return (
                 <div key={deposit.id} className="border border-border rounded-lg p-4">
@@ -351,8 +363,8 @@ export default function FixedDepositPanel() {
                   </div>
 
                   <div className="text-sm mb-3">
-                    <div className="text-muted-foreground">Angelegt: {new Date(deposit.startDate).toLocaleDateString('de-DE')}</div>
-                    <div className="text-muted-foreground">Fällig: {maturityDate.toLocaleDateString('de-DE')}</div>
+                    <div className="text-muted-foreground">Angelegt: {startDateStr}</div>
+                    <div className="text-muted-foreground">Fällig: {maturityDateStr}</div>
                     {deposit.status === 'active' && !isMatured && (
                       <div className="text-primary font-medium mt-1">Noch {daysRemaining} Tage</div>
                     )}
