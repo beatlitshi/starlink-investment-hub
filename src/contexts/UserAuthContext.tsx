@@ -106,13 +106,14 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     let mounted = true;
     const loadTimeout = setTimeout(() => {
       if (mounted) {
-        console.log('Auth loading timeout - forcing clear');
+        console.log('Auth loading timeout (10s) - forcing clear');
         setIsLoading(false);
       }
-    }, 4000);
+    }, 10000); // Increased from 4s to 10s
 
     const initAuth = async () => {
       try {
+        console.log('initAuth: Getting session...');
         // Get current session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
@@ -123,7 +124,9 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (session?.user && mounted) {
           console.log('Session found, loading profile for:', session.user.email);
           try {
+            console.log('initAuth: Starting profile load...');
             const profile = await loadUserProfile(session.user.id, session.user.email!);
+            console.log('initAuth: Profile load complete:', profile ? 'success' : 'null');
             if (profile && mounted) {
               console.log('Profile loaded successfully');
               setUser(profile);
@@ -168,6 +171,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         console.error('Auth init error:', err);
       } finally {
         if (mounted) {
+          console.log('initAuth: Setting isLoading to false');
           setIsLoading(false);
         }
       }
