@@ -3,6 +3,10 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 export async function POST(req: Request) {
   try {
+    if (!supabaseAdmin) {
+      return NextResponse.json({ success: false, error: 'Supabase admin client is not configured. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.' }, { status: 500 });
+    }
+
     const body = await req.json();
     const { authId } = body;
 
