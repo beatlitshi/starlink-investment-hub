@@ -161,7 +161,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
 
     // FIRST: Set up auth state listener BEFORE calling initAuth
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
       if (!mounted) return;
 
       console.log('🔐 Auth event:', event, '- Email:', session?.user?.email);
@@ -341,7 +341,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         .eq('auth_id', user.authId);
 
       if (!error) {
-        setUser(prev => prev ? { ...prev, balance: newBalance } : null);
+        setUser((prev: User | null) => prev ? { ...prev, balance: newBalance } : null);
       }
     } catch (err) {
       console.error('Balance update error:', err);
@@ -358,7 +358,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         .eq('auth_id', user.authId);
 
       if (!error) {
-        setUser(prev => prev ? { ...prev, investments } : null);
+        setUser((prev: User | null) => prev ? { ...prev, investments } : null);
       }
     } catch (err) {
       console.error('Investments update error:', err);
@@ -376,7 +376,7 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         .single();
 
       if (!error && data) {
-        setUser(prev => prev ? { ...prev, balance: data.balance, investments: data.investments || [] } : null);
+        setUser((prev: User | null) => prev ? { ...prev, balance: data.balance, investments: data.investments || [] } : null);
       }
     } catch (err) {
       console.error('Balance refresh error:', err);
